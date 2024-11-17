@@ -13,17 +13,24 @@ Window::Window()
 {
     initializeGLFW();
     createInstance(mInstance);
-
+    createRenderingDevice(mInstance, mRenderDevice);
 }
 
 Window::~Window()
 {
+    destroyRenderingDevice(mRenderDevice);
     destroyInstance(mInstance);
 }
 
 void Window::run()
 {
+    while (!glfwWindowShouldClose(mWindow))
+    {
+        glfwPollEvents();
+        renderFrame();
+    }
 
+    // vkDeviceWaitIdle
 }
 
 void Window::initializeGLFW()
@@ -38,4 +45,20 @@ void Window::initializeGLFW()
     {
         throw std::runtime_error("Window::initializeGLFW: Failed to create GLFW window.");
     }
+
+    glfwSetWindowUserPointer(mWindow, this);
+    glfwSetKeyCallback(mWindow, keyCallback);
+}
+
+void Window::renderFrame()
+{
+
+}
+
+void Window::keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods)
+{
+    Window& appWindow = *reinterpret_cast<Window*>(glfwGetWindowUserPointer(window));
+
+    if (key == GLFW_KEY_ESCAPE)
+        glfwSetWindowShouldClose(window, GLFW_TRUE);
 }

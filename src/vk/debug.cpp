@@ -9,7 +9,7 @@ void vulkanCheck(VkResult result, const char* msg, std::source_location location
 {
     if (result == VK_SUCCESS)
         return;
-    
+
     std::stringstream errorMsg;
     errorMsg << '`' << location.function_name() << "`: " << msg << '\n';
 
@@ -24,8 +24,8 @@ VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT severit
                                   const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData,
                                   void *userPointer)
 {
-    if (pCallbackData->messageIdNumber == 1387471518)
-        return VK_FALSE;
+//    if (pCallbackData->messageIdNumber == 1387471518)
+//        return VK_FALSE;
 
     std::cerr << "----- Validation Layer -----" << '\n';
 

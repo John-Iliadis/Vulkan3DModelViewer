@@ -2,9 +2,6 @@
 // Created by Gianni on 17/11/2024.
 //
 
-#pragma clang diagnostic push
-#pragma ide diagnostic ignored "UnusedParameter"
-#pragma ide diagnostic ignored "OCUnusedGlobalDeclarationInspection"
 #ifndef VULKAN3DMODELVIEWER_DEBUG_HPP
 #define VULKAN3DMODELVIEWER_DEBUG_HPP
 
@@ -22,5 +19,3 @@ VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT severit
 
 
 #endif //VULKAN3DMODELVIEWER_DEBUG_HPP
-
-#pragma clang diagnostic pop

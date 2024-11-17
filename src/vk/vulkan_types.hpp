@@ -17,10 +17,11 @@ struct VulkanInstance
 #endif
 };
 
-struct RenderingDevice
+struct VulkanRenderDevice
 {
-    VkPhysicalDevice gpu;
+    VkPhysicalDevice physicalDevice;
     VkDevice device;
+    VkQueue graphicsQueue;
 };
 
 #endif //VULKAN3DMODELVIEWER_VULKAN_TYPES_HPP

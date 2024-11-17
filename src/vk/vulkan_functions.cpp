@@ -74,51 +74,56 @@ void destroyInstance(VulkanInstance& instance)
     auto vkDestroyDebugUtilsMessengerEXT = reinterpret_cast<PFN_vkDestroyDebugUtilsMessengerEXT>(funcPtr);
     vkDestroyDebugUtilsMessengerEXT(instance.instance, instance.debugMessenger, nullptr);
 #endif
+    vkDestroySurfaceKHR(instance.instance, instance.surface, nullptr);
     vkDestroyInstance(instance.instance, nullptr);
+}
+
+void createSurface(VulkanInstance& instance, GLFWwindow* window)
+{
+    VkResult result = glfwCreateWindowSurface(instance.instance, window, nullptr, &instance.surface);
+    vulkanCheck(result, "Failed to create surface");
 }
 
 void createRenderingDevice(VulkanInstance& instance, VulkanRenderDevice& renderDevice)
 {
     pickPhysicalDevice(instance, renderDevice);
     createDevice(renderDevice);
+    createSwapchain(instance, renderDevice);
+    createSwapchainImages(renderDevice);
 }
 
 void destroyRenderingDevice(VulkanRenderDevice& renderDevice)
 {
+    for (VkImageView imageView : renderDevice.swapchainImageViews)
+    {
+        vkDestroyImageView(renderDevice.device, imageView, nullptr);
+    }
+
+    vkDestroySwapchainKHR(renderDevice.device, renderDevice.swapchain, nullptr);
     vkDestroyDevice(renderDevice.device, nullptr);
 }
 
-void createDevice(VulkanRenderDevice& renderDevice)
+std::vector<const char*> getInstanceExtensions()
 {
-    uint32_t queueFamilyIndex = findQueueFamilyIndex(renderDevice, VK_QUEUE_GRAPHICS_BIT).value();
-
-    float queuePriority = 1.f;
-    VkDeviceQueueCreateInfo queueCreateInfo {
-        .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
-        .queueFamilyIndex = queueFamilyIndex,
-        .queueCount = 1,
-        .pQueuePriorities = &queuePriority
+    std::vector<const char*> extensions {
+            "VK_KHR_surface",
+            "VK_KHR_win32_surface"
     };
 
-    std::vector<const char*> extensions = getDeviceExtensions();
+#ifdef DEBUG_MODE
+    extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+#endif
 
-    VkPhysicalDeviceFeatures physicalDeviceFeatures {};
+    return extensions;
+}
 
-    VkDeviceCreateInfo deviceCreateInfo {
-        .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
-        .queueCreateInfoCount = 1,
-        .pQueueCreateInfos = &queueCreateInfo,
-        .enabledExtensionCount = static_cast<uint32_t>(extensions.size()),
-        .ppEnabledExtensionNames = extensions.data(),
-        .pEnabledFeatures = &physicalDeviceFeatures
+std::vector<const char*> getDeviceExtensions()
+{
+    std::vector<const char*> extensions {
+            "VK_KHR_swapchain"
     };
 
-    VkResult result = vkCreateDevice(renderDevice.physicalDevice, &deviceCreateInfo, nullptr, &renderDevice.device);
-
-    vulkanCheck(result, "Failed to create logical device.");
-
-    vkGetDeviceQueue(renderDevice.device, queueFamilyIndex, 0, &renderDevice.graphicsQueue);
-
+    return extensions;
 }
 
 void pickPhysicalDevice(VulkanInstance& instance, VulkanRenderDevice& device)
@@ -158,6 +163,39 @@ void pickPhysicalDevice(VulkanInstance& instance, VulkanRenderDevice& device)
     vulkanCheck(VK_INCOMPLETE, "Failed to find a suitable physical device");
 }
 
+void createDevice(VulkanRenderDevice& renderDevice)
+{
+    uint32_t queueFamilyIndex = findQueueFamilyIndex(renderDevice, VK_QUEUE_GRAPHICS_BIT).value();
+
+    float queuePriority = 1.f;
+    VkDeviceQueueCreateInfo queueCreateInfo {
+            .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
+            .queueFamilyIndex = queueFamilyIndex,
+            .queueCount = 1,
+            .pQueuePriorities = &queuePriority
+    };
+
+    std::vector<const char*> extensions = getDeviceExtensions();
+
+    VkPhysicalDeviceFeatures physicalDeviceFeatures {};
+
+    VkDeviceCreateInfo deviceCreateInfo {
+            .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
+            .queueCreateInfoCount = 1,
+            .pQueueCreateInfos = &queueCreateInfo,
+            .enabledExtensionCount = static_cast<uint32_t>(extensions.size()),
+            .ppEnabledExtensionNames = extensions.data(),
+            .pEnabledFeatures = &physicalDeviceFeatures
+    };
+
+    VkResult result = vkCreateDevice(renderDevice.physicalDevice, &deviceCreateInfo, nullptr, &renderDevice.device);
+
+    vulkanCheck(result, "Failed to create logical device.");
+
+    vkGetDeviceQueue(renderDevice.device, queueFamilyIndex, 0, &renderDevice.graphicsQueue);
+
+}
+
 std::optional<uint32_t> findQueueFamilyIndex(VulkanRenderDevice& renderDevice, VkQueueFlags capabilitiesFlags)
 {
     uint32_t queueFamilyPropertyCount;
@@ -175,25 +213,68 @@ std::optional<uint32_t> findQueueFamilyIndex(VulkanRenderDevice& renderDevice, V
     return {};
 }
 
-std::vector<const char*> getInstanceExtensions()
+void createSwapchain(VulkanInstance& instance, VulkanRenderDevice& renderDevice)
 {
-    std::vector<const char*> extensions {
-        "VK_KHR_surface",
-        "VK_KHR_win32_surface"
+    VkSurfaceCapabilitiesKHR surfaceCapabilities;
+    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(renderDevice.physicalDevice, instance.surface, &surfaceCapabilities);
+
+    renderDevice.format = VK_FORMAT_R8G8B8A8_UNORM;
+    renderDevice.extent = surfaceCapabilities.currentExtent;
+
+    VkSwapchainCreateInfoKHR swapchainCreateInfo {
+        .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
+        .surface = instance.surface,
+        .minImageCount = 3,
+        .imageFormat = renderDevice.format,
+        .imageColorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR,
+        .imageExtent = renderDevice.extent,
+        .imageArrayLayers = 1,
+        .imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+        .imageSharingMode = VK_SHARING_MODE_EXCLUSIVE,
+        .preTransform = surfaceCapabilities.currentTransform,
+        .compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
+        .presentMode = VK_PRESENT_MODE_IMMEDIATE_KHR,
+        .clipped = VK_TRUE
     };
 
-#ifdef DEBUG_MODE
-    extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
-#endif
-
-    return extensions;
+    VkResult result = vkCreateSwapchainKHR(renderDevice.device, &swapchainCreateInfo, nullptr, &renderDevice.swapchain);
+    vulkanCheck(result, "Failed to create swapchain.");
 }
 
-std::vector<const char*> getDeviceExtensions()
+void createSwapchainImages(VulkanRenderDevice& renderDevice)
 {
-    std::vector<const char*> extensions {
-        "VK_KHR_swapchain"
-    };
+    uint32_t imageCount;
+    vkGetSwapchainImagesKHR(renderDevice.device, renderDevice.swapchain, &imageCount, nullptr);
 
-    return extensions;
+    renderDevice.swapchainImages.resize(imageCount);
+    renderDevice.swapchainImageViews.resize(imageCount);
+
+    vkGetSwapchainImagesKHR(renderDevice.device,
+                            renderDevice.swapchain,
+                            &imageCount,
+                            renderDevice.swapchainImages.data());
+
+    for (size_t i = 0, size = renderDevice.swapchainImages.size(); i < size; ++i)
+    {
+        VkImageViewCreateInfo imageViewCreateInfo {
+            .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+            .image = renderDevice.swapchainImages.at(i),
+            .viewType = VK_IMAGE_VIEW_TYPE_2D,
+            .format = renderDevice.format,
+            .subresourceRange {
+                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                .baseMipLevel = 0,
+                .levelCount = 1,
+                .baseArrayLayer = 0,
+                .layerCount = 1
+            }
+        };
+
+        VkResult result = vkCreateImageView(renderDevice.device,
+                                            &imageViewCreateInfo,
+                                            nullptr,
+                                            &renderDevice.swapchainImageViews.at(i));
+
+        vulkanCheck(result, "Failed to create a swapchain image view.");
+    }
 }

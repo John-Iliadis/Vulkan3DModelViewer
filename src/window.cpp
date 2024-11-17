@@ -13,6 +13,7 @@ Window::Window()
 {
     initializeGLFW();
     createInstance(mInstance);
+    createSurface(mInstance, mWindow);
     createRenderingDevice(mInstance, mRenderDevice);
 }
 

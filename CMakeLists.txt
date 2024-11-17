@@ -41,6 +41,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
 
 target_compile_definitions(${PROJECT_NAME} PRIVATE
     $<$<CONFIG:Debug>:DEBUG_MODE>
+    GLFW_INCLUDE_VULKAN
     STB_IMAGE_IMPLEMENTATION
     GLM_FORCE_DEPTH_ZERO_TO_ONE
 )

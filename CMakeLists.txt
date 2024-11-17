@@ -4,7 +4,14 @@ project(Vulkan3DModelViewer)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin)
 
-add_executable(Vulkan3DModelViewer src/main.cpp)
+add_executable(Vulkan3DModelViewer src/main.cpp
+        src/vk/vulkan_types.hpp
+        src/vk/debug.hpp
+        src/vk/vulkan_functions.hpp
+        src/vk/vulkan_functions.cpp
+        src/vk/debug.cpp
+        src/window.hpp
+        src/window.cpp)
 
 set(DEPENDENCIES_DIR ${PROJECT_SOURCE_DIR}/dependencies)
 set(GLFW_DIR ${DEPENDENCIES_DIR}/glfw)

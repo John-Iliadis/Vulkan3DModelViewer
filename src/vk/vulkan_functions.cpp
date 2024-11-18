@@ -91,6 +91,7 @@ void createRenderingDevice(VulkanInstance& instance, VulkanRenderDevice& renderD
     createDevice(renderDevice);
     createSwapchain(instance, renderDevice);
     createSwapchainImages(renderDevice);
+    createCommandPool(renderDevice);
 }
 
 void destroyRenderingDevice(VulkanRenderDevice& renderDevice)
@@ -100,6 +101,7 @@ void destroyRenderingDevice(VulkanRenderDevice& renderDevice)
         vkDestroyImageView(renderDevice.device, imageView, nullptr);
     }
 
+    vkDestroyCommandPool(renderDevice.device, renderDevice.commandPool, nullptr);
     vkDestroySwapchainKHR(renderDevice.device, renderDevice.swapchain, nullptr);
     vkDestroyDevice(renderDevice.device, nullptr);
 }
@@ -161,7 +163,7 @@ void pickPhysicalDevice(VulkanInstance& instance, VulkanRenderDevice& device)
     if (foundIntegratedGPU)
         return;
 
-    vulkanCheck(VK_INCOMPLETE, "Failed to find a suitable physical device");
+    vulkanCheck(static_cast<VkResult>(~VK_SUCCESS), "Failed to find a suitable physical device");
 }
 
 void createDevice(VulkanRenderDevice& renderDevice)
@@ -194,6 +196,7 @@ void createDevice(VulkanRenderDevice& renderDevice)
     vulkanCheck(result, "Failed to create logical device.");
 
     vkGetDeviceQueue(renderDevice.device, queueFamilyIndex, 0, &renderDevice.graphicsQueue);
+    renderDevice.queueFamilyIndex = queueFamilyIndex;
 }
 
 std::optional<uint32_t> findQueueFamilyIndex(VulkanRenderDevice& renderDevice, VkQueueFlags capabilitiesFlags)
@@ -256,27 +259,25 @@ void createSwapchainImages(VulkanRenderDevice& renderDevice)
 
     for (size_t i = 0, size = renderDevice.swapchainImages.size(); i < size; ++i)
     {
-        VkImageViewCreateInfo imageViewCreateInfo {
-            .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
-            .image = renderDevice.swapchainImages.at(i),
-            .viewType = VK_IMAGE_VIEW_TYPE_2D,
-            .format = renderDevice.format,
-            .subresourceRange {
-                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-                .baseMipLevel = 0,
-                .levelCount = 1,
-                .baseArrayLayer = 0,
-                .layerCount = 1
-            }
-        };
-
-        VkResult result = vkCreateImageView(renderDevice.device,
-                                            &imageViewCreateInfo,
-                                            nullptr,
-                                            &renderDevice.swapchainImageViews.at(i));
-
-        vulkanCheck(result, "Failed to create a swapchain image view.");
+        renderDevice.swapchainImageViews.at(i) = createImageView(renderDevice,
+                                                                 renderDevice.swapchainImages.at(i),
+                                                                 renderDevice.format);
     }
+}
+
+void createCommandPool(VulkanRenderDevice& renderDevice)
+{
+    VkCommandPoolCreateInfo commandPoolCreateInfo {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+        .queueFamilyIndex = renderDevice.queueFamilyIndex
+    };
+
+    VkResult result = vkCreateCommandPool(renderDevice.device,
+                                          &commandPoolCreateInfo,
+                                          nullptr,
+                                          &renderDevice.commandPool);
+
+    vulkanCheck(result, "Failed to create command pool.");
 }
 
 VulkanBuffer createBuffer(VulkanRenderDevice& renderDevice,
@@ -341,39 +342,6 @@ void destroyBuffer(VulkanRenderDevice& renderDevice, VulkanBuffer& buffer)
     vkFreeMemory(renderDevice.device, buffer.memory, nullptr);
 }
 
-void createTexture(VulkanTexture& texture, const std::string& filename, VulkanRenderDevice& renderDevice)
-{
-    int width, height;
-
-    uint8_t* data = stbi_load(filename.c_str(), &width, &height, nullptr, STBI_rgb_alpha);
-
-    vulkanCheck(static_cast<VkResult>(data ? VK_SUCCESS : ~VK_SUCCESS), "Failed to load image data.");
-
-
-}
-
-void createImage(VulkanTexture& texture,
-                 VulkanRenderDevice& renderDevice,
-                 uint8_t* imageData,
-                 VkFormat format,
-                 VkDeviceSize size,
-                 uint32_t width, uint32_t height)
-{
-    // todo: check this flag
-    VkBufferUsageFlags stagingBufferUsageFlags = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-
-    VkMemoryPropertyFlags stagingBufferMemoryProperties {
-        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-        VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
-    };
-
-    VulkanBuffer stagingBuffer = createBuffer(renderDevice,
-                                              size,
-                                              stagingBufferUsageFlags,
-                                              stagingBufferMemoryProperties,
-                                              imageData);
-}
-
 std::optional<uint32_t> findSuitableMemoryType(VulkanRenderDevice& renderDevice,
                                                uint32_t resourceSupportedMemoryTypes,
                                                VkMemoryPropertyFlags desiredMemoryProperties)
@@ -389,4 +357,263 @@ std::optional<uint32_t> findSuitableMemoryType(VulkanRenderDevice& renderDevice,
     }
 
     return {};
+}
+
+VkCommandBuffer beginSingleCommand(VulkanRenderDevice& renderDevice)
+{
+    VkCommandBuffer commandBuffer;
+
+    VkCommandBufferAllocateInfo commandBufferAllocateInfo {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+        .commandPool = renderDevice.commandPool,
+        .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+        .commandBufferCount = 1
+    };
+
+    vkAllocateCommandBuffers(renderDevice.device, &commandBufferAllocateInfo, &commandBuffer);
+
+    VkCommandBufferBeginInfo commandBufferBeginInfo {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+        .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT
+    };
+
+    vkBeginCommandBuffer(commandBuffer, &commandBufferBeginInfo);
+
+    return commandBuffer;
+}
+
+void endSingleCommand(VulkanRenderDevice& renderDevice, VkCommandBuffer commandBuffer)
+{
+    vkEndCommandBuffer(commandBuffer);
+
+    VkSubmitInfo submitInfo {
+        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+        .commandBufferCount = 1,
+        .pCommandBuffers = &commandBuffer,
+    };
+
+    vkQueueSubmit(renderDevice.graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
+    vkDeviceWaitIdle(renderDevice.device);
+
+    vkFreeCommandBuffers(renderDevice.device, renderDevice.commandPool, 1, &commandBuffer);
+}
+
+VulkanImage createImage(VulkanRenderDevice& renderDevice,
+                        VkFormat format,
+                        uint32_t width, uint32_t height,
+                        VkImageUsageFlags usage)
+{
+    VulkanImage image;
+
+    // create image
+    VkImageCreateInfo imageCreateInfo {
+        .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+        .imageType = VK_IMAGE_TYPE_2D,
+        .format = format,
+        .extent = {.width = width, .height = height, .depth = 1},
+        .mipLevels = 1,
+        .arrayLayers = 1,
+        .samples = VK_SAMPLE_COUNT_1_BIT,
+        .tiling = VK_IMAGE_TILING_OPTIMAL,
+        .usage = usage,
+        .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+        .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED
+    };
+
+    VkResult result = vkCreateImage(renderDevice.device, &imageCreateInfo, nullptr, &image.image);
+    vulkanCheck(result, "Failed to create image.");
+
+    // create image memory
+    VkMemoryRequirements imageMemoryRequirements;
+    vkGetImageMemoryRequirements(renderDevice.device, image.image, &imageMemoryRequirements);
+
+    VkMemoryPropertyFlags memoryPropertyFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+
+    uint32_t imageMemoryTypeIndex = findSuitableMemoryType(renderDevice,
+                                                           imageMemoryRequirements.memoryTypeBits,
+                                                           memoryPropertyFlags).value();
+
+    VkMemoryAllocateInfo memoryAllocateInfo {
+        .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+        .allocationSize = imageMemoryRequirements.size,
+        .memoryTypeIndex = imageMemoryTypeIndex
+    };
+
+    result = vkAllocateMemory(renderDevice.device, &memoryAllocateInfo, nullptr, &image.memory);
+    vulkanCheck(result, "Failed to allocate image memory.");
+
+    vkBindImageMemory(renderDevice.device, image.image, image.memory, 0);
+
+    // create image view
+    image.imageView = createImageView(renderDevice, image.image, format);
+
+    return image;
+}
+
+void destroyImage(VulkanRenderDevice& renderDevice, VulkanImage& image)
+{
+    vkDestroyImageView(renderDevice.device, image.imageView, nullptr);
+    vkDestroyImage(renderDevice.device, image.image, nullptr);
+    vkFreeMemory(renderDevice.device, image.memory, nullptr);
+}
+
+VkImageView createImageView(VulkanRenderDevice& renderDevice, VkImage image, VkFormat format)
+{
+    VkImageView imageView;
+
+    VkImageViewCreateInfo imageViewCreateInfo {
+        .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+        .image = image,
+        .viewType = VK_IMAGE_VIEW_TYPE_2D,
+        .format = format,
+        .subresourceRange {
+            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+            .baseMipLevel = 0,
+            .levelCount = 1,
+            .baseArrayLayer = 0,
+            .layerCount = 1
+        }
+    };
+
+    VkResult result = vkCreateImageView(renderDevice.device, &imageViewCreateInfo, nullptr, &imageView);
+    vulkanCheck(result, "Failed to create image view.");
+
+    return imageView;
+}
+
+void transitionImageLayout(VulkanRenderDevice& renderDevice,
+                           VulkanImage& image,
+                           VkImageLayout oldLayout,
+                           VkImageLayout newLayout)
+{
+    VkCommandBuffer commandBuffer = beginSingleCommand(renderDevice);
+
+    VkImageMemoryBarrier imageMemoryBarrier {
+        .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+        .oldLayout = oldLayout,
+        .newLayout = newLayout,
+        .image = image.image,
+        .subresourceRange {
+            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+            .baseMipLevel = 0,
+            .levelCount = 1,
+            .baseArrayLayer = 0,
+            .layerCount = 1
+        }
+    };
+
+    VkPipelineStageFlags srcStageMask {};
+    VkPipelineStageFlags dstStageMask {};
+
+    if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL)
+    {
+        imageMemoryBarrier.srcAccessMask = 0;
+        imageMemoryBarrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        srcStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+        dstStageMask = VK_PIPELINE_STAGE_TRANSFER_BIT;
+    }
+    else if (oldLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
+    {
+        imageMemoryBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        imageMemoryBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+        srcStageMask = VK_PIPELINE_STAGE_TRANSFER_BIT;
+        dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+    }
+    else
+    {
+        vulkanCheck(static_cast<VkResult>(~VK_SUCCESS), "Operation not supported yet.");
+    }
+
+    vkCmdPipelineBarrier(commandBuffer,
+                         srcStageMask,
+                         dstStageMask,
+                         0, 0, nullptr, 0, nullptr,
+                         1, &imageMemoryBarrier);
+
+    endSingleCommand(renderDevice, commandBuffer);
+}
+
+void copyBufferToImage(VulkanRenderDevice& renderDevice,
+                       VulkanBuffer& buffer,
+                       VulkanImage& image,
+                       uint32_t width, uint32_t height)
+{
+    VkCommandBuffer commandBuffer = beginSingleCommand(renderDevice);
+
+    VkBufferImageCopy copyRegion {
+        .bufferOffset = 0,
+        .bufferRowLength = width,
+        .bufferImageHeight = height,
+        .imageSubresource {
+            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+            .mipLevel = 1,
+            .baseArrayLayer = 0,
+            .layerCount = 1
+        },
+        .imageOffset {0, 0, 0},
+        .imageExtent {.width = width, .height = height, .depth = 1},
+    };
+
+    vkCmdCopyBufferToImage(commandBuffer,
+                           buffer.buffer,
+                           image.image,
+                           VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                           1, &copyRegion);
+
+    endSingleCommand(renderDevice, commandBuffer);
+}
+
+VulkanTexture createTexture(VulkanRenderDevice& renderDevice, const std::string& filename)
+{
+    VulkanTexture texture;
+
+    // load image data
+    int width, height;
+
+    uint8_t* imageData = stbi_load(filename.c_str(), &width, &height, nullptr, STBI_rgb_alpha);
+    vulkanCheck(static_cast<VkResult>(imageData ? VK_SUCCESS : ~VK_SUCCESS), "Failed to load image data.");
+
+    VkDeviceSize size = width * height * sizeof(uint8_t);
+
+    // create staging buffer
+    VkMemoryPropertyFlags stagingBufferMemoryProperties {
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+        VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+    };
+
+    VulkanBuffer stagingBuffer = createBuffer(renderDevice,
+                                              size,
+                                              VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                                              stagingBufferMemoryProperties,
+                                              imageData);
+
+    stbi_image_free(imageData);
+
+    // create image
+    VkImageUsageFlags imageUsageFlags {
+        VK_IMAGE_USAGE_TRANSFER_DST_BIT |
+        VK_IMAGE_USAGE_SAMPLED_BIT
+    };
+
+    texture.image = createImage(renderDevice, VK_FORMAT_R8G8B8A8_UNORM, width, height, imageUsageFlags);
+
+    // transition image layout for staging memory copy operation
+    transitionImageLayout(renderDevice, texture.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+
+    // perform copy
+    copyBufferToImage(renderDevice, stagingBuffer, texture.image, width, height);
+
+    // transition image layout to shader read only
+    transitionImageLayout(renderDevice, texture.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+    // delete staging buffer
+    destroyBuffer(renderDevice, stagingBuffer);
+
+    return texture;
+}
+
+void destroyTexture(VulkanRenderDevice& renderDevice, VulkanTexture& texture)
+{
+    destroyImage(renderDevice, texture.image);
+    vkDestroySampler(renderDevice.device, texture.sampler, nullptr);
 }

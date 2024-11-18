@@ -30,6 +30,8 @@ std::optional<uint32_t> findQueueFamilyIndex(VulkanRenderDevice& renderDevice, V
 void createSwapchain(VulkanInstance& instance, VulkanRenderDevice& renderDevice);
 void createSwapchainImages(VulkanRenderDevice& renderDevice);
 
+void createCommandPool(VulkanRenderDevice& renderDevice);
+
 VulkanBuffer createBuffer(VulkanRenderDevice& renderDevice,
                           VkDeviceSize size,
                           VkBufferUsageFlags usage,
@@ -39,20 +41,34 @@ VulkanBuffer createBuffer(VulkanRenderDevice& renderDevice,
                           VkBufferUsageFlags usage,
                           VkMemoryPropertyFlags memoryProperties,
                           void* bufferData);
-
 void destroyBuffer(VulkanRenderDevice& renderDevice, VulkanBuffer& buffer);
-
-void createTexture(VulkanTexture& texture, const std::string& filename, VulkanRenderDevice& renderDevice);
-void createImage(VulkanTexture& texture,
-                 VulkanRenderDevice& renderDevice,
-                 uint8_t* imageData,
-                 VkFormat format,
-                 VkDeviceSize size,
-                 uint32_t width, uint32_t height);
-void createSampler();
 
 std::optional<uint32_t> findSuitableMemoryType(VulkanRenderDevice& renderDevice,
                                                uint32_t resourceSupportedMemoryTypes,
                                                VkMemoryPropertyFlags desiredMemoryProperties);
+
+VkCommandBuffer beginSingleCommand(VulkanRenderDevice& renderDevice);
+void endSingleCommand(VulkanRenderDevice& renderDevice, VkCommandBuffer commandBuffer);
+
+VulkanImage createImage(VulkanRenderDevice& renderDevice,
+                        VkFormat format,
+                        uint32_t width, uint32_t height,
+                        VkImageUsageFlags usage);
+void destroyImage(VulkanRenderDevice& renderDevice, VulkanImage& image);
+
+VkImageView createImageView(VulkanRenderDevice& renderDevice, VkImage image, VkFormat format);
+
+void transitionImageLayout(VulkanRenderDevice& renderDevice,
+                           VulkanImage& image,
+                           VkImageLayout oldLayout,
+                           VkImageLayout newLayout);
+
+void copyBufferToImage(VulkanRenderDevice& renderDevice,
+                       VulkanBuffer& buffer,
+                       VulkanImage& image,
+                       uint32_t width, uint32_t height);
+
+VulkanTexture createTexture(VulkanRenderDevice& renderDevice, const std::string& filename);
+void destroyTexture(VulkanRenderDevice& renderDevice, VulkanTexture& texture);
 
 #endif //VULKAN3DMODELVIEWER_VULKAN_FUNCTIONS_HPP

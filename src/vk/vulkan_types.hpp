@@ -24,6 +24,8 @@ struct VulkanRenderDevice
     VkPhysicalDevice physicalDevice;
     VkDevice device;
     VkQueue graphicsQueue;
+    VkCommandPool commandPool;
+    uint32_t queueFamilyIndex;
 
     VkSwapchainKHR swapchain;
     std::vector<VkImage> swapchainImages;
@@ -39,11 +41,17 @@ struct VulkanBuffer
     VkDeviceMemory memory;
 };
 
+struct VulkanImage
+{
+    VkImage image;
+    VkImageView imageView;
+    VkDeviceMemory memory;
+};
+
 struct VulkanTexture
 {
-    VkImage textureImage;
-    VkDeviceMemory textureImageMemory;
-    VkSampler textureSampler;
+    VulkanImage image;
+    VkSampler sampler;
 };
 
 #endif //VULKAN3DMODELVIEWER_VULKAN_TYPES_HPP

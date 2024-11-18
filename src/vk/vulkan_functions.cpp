@@ -344,6 +344,21 @@ void destroyBuffer(VulkanRenderDevice& renderDevice, VulkanBuffer& buffer)
     vkFreeMemory(renderDevice.device, buffer.memory, nullptr);
 }
 
+void copyBuffer(VulkanRenderDevice& renderDevice, VulkanBuffer& srcBuffer, VulkanBuffer& dstBuffer, VkDeviceSize size)
+{
+    VkCommandBuffer commandBuffer = beginSingleCommand(renderDevice);
+
+    VkBufferCopy copyRegion {
+        .srcOffset {},
+        .dstOffset {},
+        .size = size
+    };
+
+    vkCmdCopyBuffer(commandBuffer, srcBuffer.buffer, dstBuffer.buffer, 1, &copyRegion);
+
+    endSingleCommand(renderDevice, commandBuffer);
+}
+
 std::optional<uint32_t> findSuitableMemoryType(VulkanRenderDevice& renderDevice,
                                                uint32_t resourceSupportedMemoryTypes,
                                                VkMemoryPropertyFlags desiredMemoryProperties)
@@ -548,9 +563,9 @@ void copyBufferToImage(VulkanRenderDevice& renderDevice,
         .bufferImageHeight = height,
         .imageSubresource {
             .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-            .mipLevel = 1,
+            .mipLevel = 0,
             .baseArrayLayer = 0,
-            .layerCount = 1
+            .layerCount = 1,
         },
         .imageOffset {0, 0, 0},
         .imageExtent {.width = width, .height = height, .depth = 1},
@@ -575,7 +590,7 @@ VulkanTexture createTexture(VulkanRenderDevice& renderDevice, const std::string&
     uint8_t* imageData = stbi_load(filename.c_str(), &width, &height, nullptr, STBI_rgb_alpha);
     vulkanCheck(static_cast<VkResult>(imageData ? VK_SUCCESS : ~VK_SUCCESS), "Failed to load image data.");
 
-    VkDeviceSize size = width * height * sizeof(uint8_t);
+    VkDeviceSize size = width * height * 4;
 
     // create staging buffer
     VkMemoryPropertyFlags stagingBufferMemoryProperties {
@@ -611,6 +626,9 @@ VulkanTexture createTexture(VulkanRenderDevice& renderDevice, const std::string&
     // delete staging buffer
     destroyBuffer(renderDevice, stagingBuffer);
 
+    // create sampler
+    createSampler(renderDevice, texture);
+
     return texture;
 }
 
@@ -624,8 +642,18 @@ void createSampler(VulkanRenderDevice& renderDevice, VulkanTexture& texture)
 {
     VkSamplerCreateInfo samplerCreateInfo {
         .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
-        .
+        .magFilter = VK_FILTER_LINEAR,
+        .minFilter = VK_FILTER_LINEAR,
+        .addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT,
+        .addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT,
+        .addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT,
+        .mipLodBias = 0.f,
+        .anisotropyEnable = VK_FALSE,
+        .maxAnisotropy = 0.f,
+        .minLod = 0.f,
+        .maxLod = 0.f,
+        .unnormalizedCoordinates = VK_FALSE
     };
 
-//    vkCreateSampler()
+    vkCreateSampler(renderDevice.device, &samplerCreateInfo, nullptr, &texture.sampler);
 }

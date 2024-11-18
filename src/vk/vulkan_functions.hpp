@@ -43,6 +43,8 @@ VulkanBuffer createBuffer(VulkanRenderDevice& renderDevice,
                           void* bufferData);
 void destroyBuffer(VulkanRenderDevice& renderDevice, VulkanBuffer& buffer);
 
+void copyBuffer(VulkanRenderDevice& renderDevice, VulkanBuffer& srcBuffer, VulkanBuffer& dstBuffer, VkDeviceSize size);
+
 std::optional<uint32_t> findSuitableMemoryType(VulkanRenderDevice& renderDevice,
                                                uint32_t resourceSupportedMemoryTypes,
                                                VkMemoryPropertyFlags desiredMemoryProperties);

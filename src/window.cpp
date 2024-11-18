@@ -9,16 +9,35 @@ static constexpr int INITIAL_WINDOW_WIDTH = 1920;
 static constexpr int INITIAL_WINDOW_HEIGHT = 1080;
 static constexpr char* const WINDOW_TITLE = "3D Model Viewer";
 
+const std::vector<Vertex> vertices {
+    {{-0.5f, -0.5f, 0.0f}, {0.0f, 0.0f}},
+    {{0.5f, -0.5f, 0.0f}, {1.0f, 0.0f}},
+    {{0.5f, 0.5f, 0.0f}, {1.0f, 1.0f}},
+    {{-0.5f, 0.5f, 0.0f}, {0.0f, 1.0f}},
+};
+
 Window::Window()
+    : mInstance()
+    , mRenderDevice()
+    , mTestBuffer()
+    , mTestTexture()
 {
     initializeGLFW();
     createInstance(mInstance);
     createSurface(mInstance, mWindow);
     createRenderingDevice(mInstance, mRenderDevice);
+    mTestBuffer = createBuffer(mRenderDevice,
+                  vertices.size() * sizeof(Vertex),
+                  VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+                  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                  (void*)vertices.data());
+    mTestTexture = createTexture(mRenderDevice, "../assets/vault_boy.jpg");
 }
 
 Window::~Window()
 {
+    destroyBuffer(mRenderDevice, mTestBuffer);
+    destroyTexture(mRenderDevice, mTestTexture);
     destroyRenderingDevice(mRenderDevice);
     destroyInstance(mInstance);
 }

@@ -31,7 +31,7 @@ void Window::run()
         renderFrame();
     }
 
-    // vkDeviceWaitIdle
+     vkDeviceWaitIdle(mRenderDevice.device);
 }
 
 void Window::initializeGLFW()

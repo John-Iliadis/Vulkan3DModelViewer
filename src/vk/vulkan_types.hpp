@@ -25,14 +25,13 @@ struct VulkanRenderDevice
     VkDevice device;
     VkQueue graphicsQueue;
     VkCommandPool commandPool;
-    uint32_t queueFamilyIndex;
+    uint32_t graphicsQueueFamilyIndex;
 
     VkSwapchainKHR swapchain;
     std::vector<VkImage> swapchainImages;
     std::vector<VkImageView> swapchainImageViews;
-
-    VkFormat format;
-    VkExtent2D extent;
+    VkFormat swapchainFormat;
+    VkExtent2D swapchainExtent;
 };
 
 struct VulkanBuffer

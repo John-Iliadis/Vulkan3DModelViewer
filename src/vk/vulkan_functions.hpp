@@ -70,5 +70,6 @@ void copyBufferToImage(VulkanRenderDevice& renderDevice,
 
 VulkanTexture createTexture(VulkanRenderDevice& renderDevice, const std::string& filename);
 void destroyTexture(VulkanRenderDevice& renderDevice, VulkanTexture& texture);
+void createSampler(VulkanRenderDevice& renderDevice, VulkanTexture& texture);
 
 #endif //VULKAN3DMODELVIEWER_VULKAN_FUNCTIONS_HPP

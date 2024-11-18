@@ -109,8 +109,8 @@ void destroyRenderingDevice(VulkanRenderDevice& renderDevice)
 std::vector<const char*> getInstanceExtensions()
 {
     std::vector<const char*> extensions {
-            "VK_KHR_surface",
-            "VK_KHR_win32_surface"
+        "VK_KHR_surface",
+        "VK_KHR_win32_surface"
     };
 
 #ifdef DEBUG_MODE
@@ -123,7 +123,7 @@ std::vector<const char*> getInstanceExtensions()
 std::vector<const char*> getDeviceExtensions()
 {
     std::vector<const char*> extensions {
-            "VK_KHR_swapchain"
+        "VK_KHR_swapchain"
     };
 
     return extensions;
@@ -163,7 +163,7 @@ void pickPhysicalDevice(VulkanInstance& instance, VulkanRenderDevice& device)
     if (foundIntegratedGPU)
         return;
 
-    vulkanCheck(static_cast<VkResult>(~VK_SUCCESS), "Failed to find a suitable physical device");
+    vulkanCheck(static_cast<VkResult>(~VK_SUCCESS), "Failed to find a suitable physical device.");
 }
 
 void createDevice(VulkanRenderDevice& renderDevice)
@@ -172,10 +172,10 @@ void createDevice(VulkanRenderDevice& renderDevice)
 
     float queuePriority = 1.f;
     VkDeviceQueueCreateInfo queueCreateInfo {
-            .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
-            .queueFamilyIndex = queueFamilyIndex,
-            .queueCount = 1,
-            .pQueuePriorities = &queuePriority
+        .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
+        .queueFamilyIndex = queueFamilyIndex,
+        .queueCount = 1,
+        .pQueuePriorities = &queuePriority
     };
 
     std::vector<const char*> extensions = getDeviceExtensions();
@@ -183,12 +183,12 @@ void createDevice(VulkanRenderDevice& renderDevice)
     VkPhysicalDeviceFeatures physicalDeviceFeatures {};
 
     VkDeviceCreateInfo deviceCreateInfo {
-            .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
-            .queueCreateInfoCount = 1,
-            .pQueueCreateInfos = &queueCreateInfo,
-            .enabledExtensionCount = static_cast<uint32_t>(extensions.size()),
-            .ppEnabledExtensionNames = extensions.data(),
-            .pEnabledFeatures = &physicalDeviceFeatures
+        .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
+        .queueCreateInfoCount = 1,
+        .pQueueCreateInfos = &queueCreateInfo,
+        .enabledExtensionCount = static_cast<uint32_t>(extensions.size()),
+        .ppEnabledExtensionNames = extensions.data(),
+        .pEnabledFeatures = &physicalDeviceFeatures
     };
 
     VkResult result = vkCreateDevice(renderDevice.physicalDevice, &deviceCreateInfo, nullptr, &renderDevice.device);
@@ -196,7 +196,7 @@ void createDevice(VulkanRenderDevice& renderDevice)
     vulkanCheck(result, "Failed to create logical device.");
 
     vkGetDeviceQueue(renderDevice.device, queueFamilyIndex, 0, &renderDevice.graphicsQueue);
-    renderDevice.queueFamilyIndex = queueFamilyIndex;
+    renderDevice.graphicsQueueFamilyIndex = queueFamilyIndex;
 }
 
 std::optional<uint32_t> findQueueFamilyIndex(VulkanRenderDevice& renderDevice, VkQueueFlags capabilitiesFlags)
@@ -205,7 +205,9 @@ std::optional<uint32_t> findQueueFamilyIndex(VulkanRenderDevice& renderDevice, V
     vkGetPhysicalDeviceQueueFamilyProperties(renderDevice.physicalDevice, &queueFamilyPropertyCount, nullptr);
 
     std::vector<VkQueueFamilyProperties> queueFamilyPropertiesVec(queueFamilyPropertyCount);
-    vkGetPhysicalDeviceQueueFamilyProperties(renderDevice.physicalDevice, &queueFamilyPropertyCount, queueFamilyPropertiesVec.data());
+    vkGetPhysicalDeviceQueueFamilyProperties(renderDevice.physicalDevice,
+                                             &queueFamilyPropertyCount,
+                                             queueFamilyPropertiesVec.data());
 
     for (uint32_t i = 0, size = queueFamilyPropertiesVec.size(); i < size; ++i)
     {
@@ -221,16 +223,16 @@ void createSwapchain(VulkanInstance& instance, VulkanRenderDevice& renderDevice)
     VkSurfaceCapabilitiesKHR surfaceCapabilities;
     vkGetPhysicalDeviceSurfaceCapabilitiesKHR(renderDevice.physicalDevice, instance.surface, &surfaceCapabilities);
 
-    renderDevice.format = VK_FORMAT_R8G8B8A8_UNORM;
-    renderDevice.extent = surfaceCapabilities.currentExtent;
+    renderDevice.swapchainFormat = VK_FORMAT_R8G8B8A8_UNORM;
+    renderDevice.swapchainExtent = surfaceCapabilities.currentExtent;
 
     VkSwapchainCreateInfoKHR swapchainCreateInfo {
         .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
         .surface = instance.surface,
         .minImageCount = 3,
-        .imageFormat = renderDevice.format,
+        .imageFormat = renderDevice.swapchainFormat,
         .imageColorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR,
-        .imageExtent = renderDevice.extent,
+        .imageExtent = renderDevice.swapchainExtent,
         .imageArrayLayers = 1,
         .imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
         .imageSharingMode = VK_SHARING_MODE_EXCLUSIVE,
@@ -261,7 +263,7 @@ void createSwapchainImages(VulkanRenderDevice& renderDevice)
     {
         renderDevice.swapchainImageViews.at(i) = createImageView(renderDevice,
                                                                  renderDevice.swapchainImages.at(i),
-                                                                 renderDevice.format);
+                                                                 renderDevice.swapchainFormat);
     }
 }
 
@@ -269,7 +271,7 @@ void createCommandPool(VulkanRenderDevice& renderDevice)
 {
     VkCommandPoolCreateInfo commandPoolCreateInfo {
         .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
-        .queueFamilyIndex = renderDevice.queueFamilyIndex
+        .queueFamilyIndex = renderDevice.graphicsQueueFamilyIndex
     };
 
     VkResult result = vkCreateCommandPool(renderDevice.device,
@@ -289,10 +291,10 @@ VulkanBuffer createBuffer(VulkanRenderDevice& renderDevice,
     VkDeviceMemory bufferMemory;
 
     VkBufferCreateInfo bufferCreateInfo {
-            .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-            .size = size,
-            .usage = usage,
-            .sharingMode = VK_SHARING_MODE_EXCLUSIVE
+        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+        .size = size,
+        .usage = usage,
+        .sharingMode = VK_SHARING_MODE_EXCLUSIVE
     };
 
     VkResult result = vkCreateBuffer(renderDevice.device, &bufferCreateInfo, nullptr, &buffer);
@@ -306,9 +308,9 @@ VulkanBuffer createBuffer(VulkanRenderDevice& renderDevice,
                                                                    memoryProperties).value();
 
     VkMemoryAllocateInfo memoryAllocateInfo {
-            .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-            .allocationSize = stagingBufferMemoryRequirements.size,
-            .memoryTypeIndex = stagingBufferMemoryTypeIndex
+        .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+        .allocationSize = stagingBufferMemoryRequirements.size,
+        .memoryTypeIndex = stagingBufferMemoryTypeIndex
     };
 
     result = vkAllocateMemory(renderDevice.device, &memoryAllocateInfo, nullptr, &bufferMemory);
@@ -616,4 +618,14 @@ void destroyTexture(VulkanRenderDevice& renderDevice, VulkanTexture& texture)
 {
     destroyImage(renderDevice, texture.image);
     vkDestroySampler(renderDevice.device, texture.sampler, nullptr);
+}
+
+void createSampler(VulkanRenderDevice& renderDevice, VulkanTexture& texture)
+{
+    VkSamplerCreateInfo samplerCreateInfo {
+        .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
+        .
+    };
+
+//    vkCreateSampler()
 }

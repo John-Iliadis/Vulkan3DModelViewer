@@ -30,4 +30,29 @@ std::optional<uint32_t> findQueueFamilyIndex(VulkanRenderDevice& renderDevice, V
 void createSwapchain(VulkanInstance& instance, VulkanRenderDevice& renderDevice);
 void createSwapchainImages(VulkanRenderDevice& renderDevice);
 
+VulkanBuffer createBuffer(VulkanRenderDevice& renderDevice,
+                          VkDeviceSize size,
+                          VkBufferUsageFlags usage,
+                          VkMemoryPropertyFlags memoryProperties);
+VulkanBuffer createBuffer(VulkanRenderDevice& renderDevice,
+                          VkDeviceSize size,
+                          VkBufferUsageFlags usage,
+                          VkMemoryPropertyFlags memoryProperties,
+                          void* bufferData);
+
+void destroyBuffer(VulkanRenderDevice& renderDevice, VulkanBuffer& buffer);
+
+void createTexture(VulkanTexture& texture, const std::string& filename, VulkanRenderDevice& renderDevice);
+void createImage(VulkanTexture& texture,
+                 VulkanRenderDevice& renderDevice,
+                 uint8_t* imageData,
+                 VkFormat format,
+                 VkDeviceSize size,
+                 uint32_t width, uint32_t height);
+void createSampler();
+
+std::optional<uint32_t> findSuitableMemoryType(VulkanRenderDevice& renderDevice,
+                                               uint32_t resourceSupportedMemoryTypes,
+                                               VkMemoryPropertyFlags desiredMemoryProperties);
+
 #endif //VULKAN3DMODELVIEWER_VULKAN_FUNCTIONS_HPP

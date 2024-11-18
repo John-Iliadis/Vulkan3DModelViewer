@@ -33,4 +33,17 @@ struct VulkanRenderDevice
     VkExtent2D extent;
 };
 
+struct VulkanBuffer
+{
+    VkBuffer buffer;
+    VkDeviceMemory memory;
+};
+
+struct VulkanTexture
+{
+    VkImage textureImage;
+    VkDeviceMemory textureImageMemory;
+    VkSampler textureSampler;
+};
+
 #endif //VULKAN3DMODELVIEWER_VULKAN_TYPES_HPP

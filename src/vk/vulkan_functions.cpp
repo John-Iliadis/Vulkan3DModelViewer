@@ -2,6 +2,7 @@
 // Created by Gianni on 17/11/2024.
 //
 
+#include <stb/stb_image.h>
 #include "vulkan_functions.hpp"
 
 
@@ -193,7 +194,6 @@ void createDevice(VulkanRenderDevice& renderDevice)
     vulkanCheck(result, "Failed to create logical device.");
 
     vkGetDeviceQueue(renderDevice.device, queueFamilyIndex, 0, &renderDevice.graphicsQueue);
-
 }
 
 std::optional<uint32_t> findQueueFamilyIndex(VulkanRenderDevice& renderDevice, VkQueueFlags capabilitiesFlags)
@@ -277,4 +277,116 @@ void createSwapchainImages(VulkanRenderDevice& renderDevice)
 
         vulkanCheck(result, "Failed to create a swapchain image view.");
     }
+}
+
+VulkanBuffer createBuffer(VulkanRenderDevice& renderDevice,
+                          VkDeviceSize size,
+                          VkBufferUsageFlags usage,
+                          VkMemoryPropertyFlags memoryProperties)
+{
+    VkBuffer buffer;
+    VkDeviceMemory bufferMemory;
+
+    VkBufferCreateInfo bufferCreateInfo {
+            .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+            .size = size,
+            .usage = usage,
+            .sharingMode = VK_SHARING_MODE_EXCLUSIVE
+    };
+
+    VkResult result = vkCreateBuffer(renderDevice.device, &bufferCreateInfo, nullptr, &buffer);
+    vulkanCheck(result, "Failed to create staging buffer.");
+
+    VkMemoryRequirements stagingBufferMemoryRequirements;
+    vkGetBufferMemoryRequirements(renderDevice.device, buffer, &stagingBufferMemoryRequirements);
+
+    uint32_t stagingBufferMemoryTypeIndex = findSuitableMemoryType(renderDevice,
+                                                                   stagingBufferMemoryRequirements.memoryTypeBits,
+                                                                   memoryProperties).value();
+
+    VkMemoryAllocateInfo memoryAllocateInfo {
+            .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+            .allocationSize = stagingBufferMemoryRequirements.size,
+            .memoryTypeIndex = stagingBufferMemoryTypeIndex
+    };
+
+    result = vkAllocateMemory(renderDevice.device, &memoryAllocateInfo, nullptr, &bufferMemory);
+    vulkanCheck(result, "Failed to allocate staging buffer memory.");
+
+    vkBindBufferMemory(renderDevice.device, buffer, bufferMemory, 0);
+
+    return VulkanBuffer(buffer, bufferMemory);
+}
+
+// overload that maps the buffer data
+VulkanBuffer createBuffer(VulkanRenderDevice& renderDevice,
+                          VkDeviceSize size,
+                          VkBufferUsageFlags usage,
+                          VkMemoryPropertyFlags memoryProperties,
+                          void* bufferData)
+{
+    VulkanBuffer buffer = createBuffer(renderDevice, size, usage, memoryProperties);
+
+    void* dataPtr;
+    vkMapMemory(renderDevice.device, buffer.memory, 0, size, 0, &dataPtr);
+    memcpy(dataPtr, bufferData, size);
+    vkUnmapMemory(renderDevice.device, buffer.memory);
+
+    return buffer;
+}
+
+void destroyBuffer(VulkanRenderDevice& renderDevice, VulkanBuffer& buffer)
+{
+    vkDestroyBuffer(renderDevice.device, buffer.buffer, nullptr);
+    vkFreeMemory(renderDevice.device, buffer.memory, nullptr);
+}
+
+void createTexture(VulkanTexture& texture, const std::string& filename, VulkanRenderDevice& renderDevice)
+{
+    int width, height;
+
+    uint8_t* data = stbi_load(filename.c_str(), &width, &height, nullptr, STBI_rgb_alpha);
+
+    vulkanCheck(static_cast<VkResult>(data ? VK_SUCCESS : ~VK_SUCCESS), "Failed to load image data.");
+
+
+}
+
+void createImage(VulkanTexture& texture,
+                 VulkanRenderDevice& renderDevice,
+                 uint8_t* imageData,
+                 VkFormat format,
+                 VkDeviceSize size,
+                 uint32_t width, uint32_t height)
+{
+    // todo: check this flag
+    VkBufferUsageFlags stagingBufferUsageFlags = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+
+    VkMemoryPropertyFlags stagingBufferMemoryProperties {
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+        VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+    };
+
+    VulkanBuffer stagingBuffer = createBuffer(renderDevice,
+                                              size,
+                                              stagingBufferUsageFlags,
+                                              stagingBufferMemoryProperties,
+                                              imageData);
+}
+
+std::optional<uint32_t> findSuitableMemoryType(VulkanRenderDevice& renderDevice,
+                                               uint32_t resourceSupportedMemoryTypes,
+                                               VkMemoryPropertyFlags desiredMemoryProperties)
+{
+    VkPhysicalDeviceMemoryProperties memoryProperties;
+    vkGetPhysicalDeviceMemoryProperties(renderDevice.physicalDevice, &memoryProperties);
+
+    for (uint32_t i = 0; i < memoryProperties.memoryTypeCount; ++i)
+    {
+        if (resourceSupportedMemoryTypes & (1 << i) &&
+            (desiredMemoryProperties & memoryProperties.memoryTypes[i].propertyFlags) == desiredMemoryProperties)
+            return i;
+    }
+
+    return {};
 }

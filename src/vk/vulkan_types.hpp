@@ -13,10 +13,7 @@ struct VulkanInstance
 {
     VkInstance instance;
     VkSurfaceKHR surface;
-
-#ifdef DEBUG_MODE
     VkDebugUtilsMessengerEXT debugMessenger;
-#endif
 };
 
 struct VulkanRenderDevice

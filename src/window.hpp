@@ -12,43 +12,6 @@
 #include "vk/vulkan_types.hpp"
 #include "vk/vulkan_functions.hpp"
 
-struct Vertex
-{
-    glm::vec3 position;
-    glm::vec2 texCoords;
-
-    static VkVertexInputBindingDescription getBindingDescription()
-    {
-        VkVertexInputBindingDescription vertexInputBindingDescription {
-            .binding = 0,
-            .stride = sizeof(Vertex),
-            .inputRate = VK_VERTEX_INPUT_RATE_VERTEX
-        };
-
-        return vertexInputBindingDescription;
-    }
-
-    static std::array<VkVertexInputAttributeDescription, 2> getAttributeDescriptions()
-    {
-        std::array<VkVertexInputAttributeDescription, 2> attributeDescriptions;
-
-        attributeDescriptions.at(0) = {
-            .location = 0,
-            .binding = 0,
-            .format = VK_FORMAT_R32G32B32_SFLOAT,
-            .offset = offsetof(Vertex, position)
-        };
-
-        attributeDescriptions.at(1) = {
-            .location = 2,
-            .binding = 0,
-            .format = VK_FORMAT_R32G32_SFLOAT,
-            .offset = offsetof(Vertex, texCoords)
-        };
-
-        return attributeDescriptions;
-    }
-};
 
 class Window
 {
@@ -61,6 +24,7 @@ public:
 private:
     void initializeGLFW();
     void renderFrame();
+    void createDescriptorPool();
 
     static void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods);
 
@@ -68,6 +32,7 @@ private:
     GLFWwindow* mWindow;
     VulkanInstance mInstance;
     VulkanRenderDevice mRenderDevice;
+    VkDescriptorPool mDescriptorPool;
 };
 
 

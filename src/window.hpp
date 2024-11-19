@@ -25,6 +25,8 @@ private:
     void initializeGLFW();
     void renderFrame();
     void createDescriptorPool();
+    void createDescriptorSets();
+    void destroyDescriptorResources();
 
     static void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods);
 
@@ -32,7 +34,12 @@ private:
     GLFWwindow* mWindow;
     VulkanInstance mInstance;
     VulkanRenderDevice mRenderDevice;
+
     VkDescriptorPool mDescriptorPool;
+    VkDescriptorSetLayout mLayout0;
+    VkDescriptorSetLayout mLayout1;
+    VkDescriptorSet mSet0;
+    VkDescriptorSet mSet1;
 };
 
 

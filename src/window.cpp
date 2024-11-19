@@ -19,11 +19,12 @@ Window::Window()
     createSurface(mInstance, mWindow);
     createRenderingDevice(mInstance, mRenderDevice);
     createDescriptorPool();
+    createDescriptorSets();
 }
 
 Window::~Window()
 {
-    vkDestroyDescriptorPool(mRenderDevice.device, mDescriptorPool, nullptr);
+    destroyDescriptorResources();
     destroyRenderingDevice(mRenderDevice);
     destroyInstance(mInstance);
     glfwTerminate();
@@ -88,4 +89,67 @@ void Window::createDescriptorPool()
                                              nullptr,
                                              &mDescriptorPool);
     vulkanCheck(result, "Failed to create descriptor pool.");
+}
+
+void Window::createDescriptorSets()
+{
+    VkDescriptorSetLayoutBinding layout0Binding0 {
+        .binding = 0,
+        .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+        .descriptorCount = 1,
+        .stageFlags = VK_SHADER_STAGE_VERTEX_BIT
+    };
+
+    VkDescriptorSetLayoutCreateInfo layout0CreateInfo {
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+        .bindingCount = 1,
+        .pBindings = &layout0Binding0
+    };
+
+    VkDescriptorSetLayoutBinding layout1Binding0 {
+        .binding = 0,
+        .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+        .descriptorCount = 1,
+        .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT
+    };
+
+    VkDescriptorSetLayoutBinding layout1Binding1 {
+        .binding = 1,
+        .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+        .descriptorCount = 1,
+        .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT
+    };
+
+    std::vector<VkDescriptorSetLayoutBinding> layout1Bindings {layout1Binding0, layout1Binding1};
+
+    VkDescriptorSetLayoutCreateInfo layout1CreateInfo {
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+        .bindingCount = 2,
+        .pBindings = layout1Bindings.data()
+    };
+
+    VkResult result = vkCreateDescriptorSetLayout(mRenderDevice.device, &layout0CreateInfo, nullptr, &mLayout0);
+    vulkanCheck(result, "Failed to create layout 0.");
+    result = vkCreateDescriptorSetLayout(mRenderDevice.device, &layout1CreateInfo, nullptr, &mLayout1);
+    vulkanCheck(result, "Failed to create layout 1.");
+
+    std::vector<VkDescriptorSetLayout> layouts {mLayout0, mLayout1};
+
+    VkDescriptorSetAllocateInfo descriptorSetAllocateInfo {
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+        .descriptorPool = mDescriptorPool,
+        .descriptorSetCount = static_cast<uint32_t>(layouts.size()),
+        .pSetLayouts = layouts.data()
+    };
+
+    std::vector<VkDescriptorSet> sets {mSet0, mSet1};
+
+    vkAllocateDescriptorSets(mRenderDevice.device, &descriptorSetAllocateInfo, sets.data());
+}
+
+void Window::destroyDescriptorResources()
+{
+    vkDestroyDescriptorSetLayout(mRenderDevice.device, mLayout0, nullptr);
+    vkDestroyDescriptorSetLayout(mRenderDevice.device, mLayout1, nullptr);
+    vkDestroyDescriptorPool(mRenderDevice.device, mDescriptorPool, nullptr);
 }

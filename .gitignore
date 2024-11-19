@@ -1,4 +1,4 @@
 /.idea
 /bin
 /cmake-build-debug
-/cmake-release-debug
+/cmake-build-release

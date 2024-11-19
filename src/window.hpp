@@ -68,8 +68,6 @@ private:
     GLFWwindow* mWindow;
     VulkanInstance mInstance;
     VulkanRenderDevice mRenderDevice;
-    VulkanBuffer mTestBuffer;
-    VulkanTexture mTestTexture;
 };
 
 

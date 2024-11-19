@@ -19,25 +19,15 @@ const std::vector<Vertex> vertices {
 Window::Window()
     : mInstance()
     , mRenderDevice()
-    , mTestBuffer()
-    , mTestTexture()
 {
     initializeGLFW();
     createInstance(mInstance);
     createSurface(mInstance, mWindow);
     createRenderingDevice(mInstance, mRenderDevice);
-    mTestBuffer = createBuffer(mRenderDevice,
-                  vertices.size() * sizeof(Vertex),
-                  VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-                  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                  (void*)vertices.data());
-    mTestTexture = createTexture(mRenderDevice, "../assets/vault_boy.jpg");
 }
 
 Window::~Window()
 {
-    destroyBuffer(mRenderDevice, mTestBuffer);
-    destroyTexture(mRenderDevice, mTestTexture);
     destroyRenderingDevice(mRenderDevice);
     destroyInstance(mInstance);
 }
@@ -72,7 +62,6 @@ void Window::initializeGLFW()
 
 void Window::renderFrame()
 {
-
 }
 
 void Window::keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods)

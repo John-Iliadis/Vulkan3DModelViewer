@@ -43,7 +43,16 @@ VulkanBuffer createBuffer(VulkanRenderDevice& renderDevice,
                           VkBufferUsageFlags usage,
                           VkMemoryPropertyFlags memoryProperties,
                           void* bufferData);
+
 void destroyBuffer(VulkanRenderDevice& renderDevice, VulkanBuffer& buffer);
+
+VulkanBuffer createBufferWithStaging(VulkanRenderDevice& renderDevice,
+                                     VkDeviceSize size,
+                                     VkBufferUsageFlags usage,
+                                     void* bufferData);
+
+VulkanBuffer createVertexBuffer(VulkanRenderDevice& renderDevice, VkDeviceSize size, void* bufferData);
+VulkanBuffer createIndexBuffer(VulkanRenderDevice& renderDevice, VkDeviceSize size, void* bufferData);
 
 void copyBuffer(VulkanRenderDevice& renderDevice, VulkanBuffer& srcBuffer, VulkanBuffer& dstBuffer, VkDeviceSize size);
 

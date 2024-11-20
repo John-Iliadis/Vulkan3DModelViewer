@@ -344,6 +344,54 @@ void destroyBuffer(VulkanRenderDevice& renderDevice, VulkanBuffer& buffer)
     vkFreeMemory(renderDevice.device, buffer.memory, nullptr);
 }
 
+VulkanBuffer createBufferWithStaging(VulkanRenderDevice& renderDevice,
+                                     VkDeviceSize size,
+                                     VkBufferUsageFlags usage,
+                                     void* bufferData)
+{
+    VkBufferUsageFlags stagingBufferUsage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+
+    VkMemoryPropertyFlags stagingBufferMemoryProperties {
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+        VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+    };
+
+    VulkanBuffer stagingBuffer = createBuffer(renderDevice,
+                                              size,
+                                              stagingBufferUsage,
+                                              stagingBufferMemoryProperties,
+                                              bufferData);
+
+    VkMemoryPropertyFlags bufferMemoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+
+    VulkanBuffer buffer = createBuffer(renderDevice,
+                                       size,
+                                       usage,
+                                       bufferMemoryProperties);
+
+    copyBuffer(renderDevice, stagingBuffer, buffer, size);
+
+    destroyBuffer(renderDevice, stagingBuffer);
+
+    return buffer;
+}
+
+VulkanBuffer createVertexBuffer(VulkanRenderDevice& renderDevice, VkDeviceSize size, void* bufferData)
+{
+    return createBufferWithStaging(renderDevice,
+                                   size,
+                                   VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                                   bufferData);
+}
+
+VulkanBuffer createIndexBuffer(VulkanRenderDevice& renderDevice, VkDeviceSize size, void* bufferData)
+{
+    return createBufferWithStaging(renderDevice,
+                                   size,
+                                   VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                                   bufferData);
+}
+
 void copyBuffer(VulkanRenderDevice& renderDevice, VulkanBuffer& srcBuffer, VulkanBuffer& dstBuffer, VkDeviceSize size)
 {
     VkCommandBuffer commandBuffer = beginSingleCommand(renderDevice);

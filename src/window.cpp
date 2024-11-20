@@ -20,6 +20,8 @@ Window::Window()
     createRenderingDevice(mInstance, mRenderDevice);
     createDescriptorPool();
     createDescriptorSets();
+
+    createModel(testModel, mRenderDevice, "../assets/backpack/backpack.obj");
 }
 
 Window::~Window()
@@ -74,7 +76,7 @@ void Window::createDescriptorPool()
 {
     std::vector<VkDescriptorPoolSize> descriptorPoolSizes {
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1},
-        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2}
+        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 3}
     };
 
     VkDescriptorPoolCreateInfo descriptorPoolCreateInfo {
@@ -120,11 +122,18 @@ void Window::createDescriptorSets()
         .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT
     };
 
-    std::vector<VkDescriptorSetLayoutBinding> layout1Bindings {layout1Binding0, layout1Binding1};
+    VkDescriptorSetLayoutBinding layout1Binding2 {
+            .binding = 2,
+            .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+            .descriptorCount = 1,
+            .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT
+    };
+
+    std::vector<VkDescriptorSetLayoutBinding> layout1Bindings {layout1Binding0, layout1Binding1, layout1Binding2};
 
     VkDescriptorSetLayoutCreateInfo layout1CreateInfo {
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-        .bindingCount = 2,
+        .bindingCount = static_cast<uint32_t>(layout1Bindings.size()),
         .pBindings = layout1Bindings.data()
     };
 

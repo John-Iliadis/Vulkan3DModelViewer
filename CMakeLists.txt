@@ -14,9 +14,9 @@ add_executable(Vulkan3DModelViewer src/main.cpp
         src/window.cpp
         src/model/model.cpp
         src/model/model.hpp
-        src/model/mesh.hpp
-        src/vk/vertex_buffer.cpp
-        src/vk/vertex_buffer.hpp)
+        src/model/vertex.hpp
+        src/model/mesh.cpp
+        src/model/mesh.hpp)
 
 set(DEPENDENCIES_DIR ${PROJECT_SOURCE_DIR}/dependencies)
 set(GLFW_DIR ${DEPENDENCIES_DIR}/glfw)

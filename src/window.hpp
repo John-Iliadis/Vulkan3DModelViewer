@@ -11,6 +11,7 @@
 #include <glm/glm.hpp>
 #include "vk/vulkan_types.hpp"
 #include "vk/vulkan_functions.hpp"
+#include "model/model.hpp"
 
 
 class Window
@@ -40,6 +41,8 @@ private:
     VkDescriptorSetLayout mLayout1;
     VkDescriptorSet mSet0;
     VkDescriptorSet mSet1;
+
+    Model testModel;
 };
 
 

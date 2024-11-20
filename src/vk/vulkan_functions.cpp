@@ -263,7 +263,7 @@ void createSwapchainImages(VulkanRenderDevice& renderDevice)
     {
         renderDevice.swapchainImageViews.at(i) = createImageView(renderDevice,
                                                                  renderDevice.swapchainImages.at(i),
-                                                                 renderDevice.swapchainFormat);
+                                                                 renderDevice.swapchainFormat, 1);
     }
 }
 
@@ -418,7 +418,8 @@ void endSingleCommand(VulkanRenderDevice& renderDevice, VkCommandBuffer commandB
 VulkanImage createImage(VulkanRenderDevice& renderDevice,
                         VkFormat format,
                         uint32_t width, uint32_t height,
-                        VkImageUsageFlags usage)
+                        VkImageUsageFlags usage,
+                        uint32_t mipLevels)
 {
     VulkanImage image;
 
@@ -428,7 +429,7 @@ VulkanImage createImage(VulkanRenderDevice& renderDevice,
         .imageType = VK_IMAGE_TYPE_2D,
         .format = format,
         .extent = {.width = width, .height = height, .depth = 1},
-        .mipLevels = 1,
+        .mipLevels = mipLevels,
         .arrayLayers = 1,
         .samples = VK_SAMPLE_COUNT_1_BIT,
         .tiling = VK_IMAGE_TILING_OPTIMAL,
@@ -462,7 +463,7 @@ VulkanImage createImage(VulkanRenderDevice& renderDevice,
     vkBindImageMemory(renderDevice.device, image.image, image.memory, 0);
 
     // create image view
-    image.imageView = createImageView(renderDevice, image.image, format);
+    image.imageView = createImageView(renderDevice, image.image, format, mipLevels);
 
     return image;
 }
@@ -474,7 +475,7 @@ void destroyImage(VulkanRenderDevice& renderDevice, VulkanImage& image)
     vkFreeMemory(renderDevice.device, image.memory, nullptr);
 }
 
-VkImageView createImageView(VulkanRenderDevice& renderDevice, VkImage image, VkFormat format)
+VkImageView createImageView(VulkanRenderDevice& renderDevice, VkImage image, VkFormat format, uint32_t mipLevels)
 {
     VkImageView imageView;
 
@@ -486,7 +487,7 @@ VkImageView createImageView(VulkanRenderDevice& renderDevice, VkImage image, VkF
         .subresourceRange {
             .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
             .baseMipLevel = 0,
-            .levelCount = 1,
+            .levelCount = mipLevels,
             .baseArrayLayer = 0,
             .layerCount = 1
         }
@@ -501,7 +502,8 @@ VkImageView createImageView(VulkanRenderDevice& renderDevice, VkImage image, VkF
 void transitionImageLayout(VulkanRenderDevice& renderDevice,
                            VulkanImage& image,
                            VkImageLayout oldLayout,
-                           VkImageLayout newLayout)
+                           VkImageLayout newLayout,
+                           uint32_t mipLevels)
 {
     VkCommandBuffer commandBuffer = beginSingleCommand(renderDevice);
 
@@ -513,7 +515,7 @@ void transitionImageLayout(VulkanRenderDevice& renderDevice,
         .subresourceRange {
             .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
             .baseMipLevel = 0,
-            .levelCount = 1,
+            .levelCount = mipLevels,
             .baseArrayLayer = 0,
             .layerCount = 1
         }
@@ -615,16 +617,74 @@ VulkanTexture createTexture(VulkanRenderDevice& renderDevice, const std::string&
     texture.image = createImage(renderDevice, VK_FORMAT_R8G8B8A8_UNORM, width, height, imageUsageFlags);
 
     // transition image layout for staging memory copy operation
-    transitionImageLayout(renderDevice, texture.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+    transitionImageLayout(renderDevice,
+                          texture.image,
+                          VK_IMAGE_LAYOUT_UNDEFINED,
+                          VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                          1);
 
     // perform copy
     copyBufferToImage(renderDevice, stagingBuffer, texture.image, width, height);
 
     // transition image layout to shader read only
-    transitionImageLayout(renderDevice, texture.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    transitionImageLayout(renderDevice,
+                          texture.image,
+                          VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                          VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                          1);
 
     // delete staging buffer
     destroyBuffer(renderDevice, stagingBuffer);
+
+    // create sampler
+    createSampler(renderDevice, texture);
+
+    return texture;
+}
+
+VulkanTexture createTextureWithMips(VulkanRenderDevice& renderDevice, const std::string& filename)
+{
+    VulkanTexture texture;
+
+    // load image data
+    int width, height;
+
+    uint8_t* imageData = stbi_load(filename.c_str(), &width, &height, nullptr, STBI_rgb_alpha);
+    vulkanCheck(static_cast<VkResult>(imageData ? VK_SUCCESS : ~VK_SUCCESS), "Failed to load image data.");
+
+    VkDeviceSize size = width * height * 4;
+    uint32_t mipLevels = glm::floor(glm::log2(glm::max(width, height))) + 1;
+
+    // create staging buffer
+    VkMemoryPropertyFlags stagingBufferMemoryProperties {
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+        VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+    };
+
+    VulkanBuffer stagingBuffer = createBuffer(renderDevice,
+                                              size,
+                                              VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                                              stagingBufferMemoryProperties,
+                                              imageData);
+
+    stbi_image_free(imageData);
+
+    // create texture
+    VkImageUsageFlags imageUsage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+    texture.image = createImage(renderDevice, VK_FORMAT_R8G8B8A8_UNORM, width, height, imageUsage, mipLevels);
+
+    // transition image
+    transitionImageLayout(renderDevice,
+                          texture.image,
+                          VK_IMAGE_LAYOUT_UNDEFINED,
+                          VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                          mipLevels);
+
+    // copy buffer to image
+    copyBufferToImage(renderDevice, stagingBuffer, texture.image, width, height);
+
+    // generate mips
+    generateMipMaps(renderDevice, texture.image, width, height, mipLevels);
 
     // create sampler
     createSampler(renderDevice, texture);
@@ -638,8 +698,20 @@ void destroyTexture(VulkanRenderDevice& renderDevice, VulkanTexture& texture)
     vkDestroySampler(renderDevice.device, texture.sampler, nullptr);
 }
 
-void createSampler(VulkanRenderDevice& renderDevice, VulkanTexture& texture)
+void createSampler(VulkanRenderDevice& renderDevice, VulkanTexture& texture, uint32_t mipLevels)
 {
+    VkBool32 anisotropyEnable = VK_FALSE;
+    float maxAnisotropy = 0.f;
+
+    if (mipLevels > 1)
+    {
+        VkPhysicalDeviceProperties physicalDeviceProperties;
+        vkGetPhysicalDeviceProperties(renderDevice.physicalDevice, &physicalDeviceProperties);
+
+        anisotropyEnable = VK_TRUE;
+        maxAnisotropy = physicalDeviceProperties.limits.maxSamplerAnisotropy;
+    }
+
     VkSamplerCreateInfo samplerCreateInfo {
         .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
         .magFilter = VK_FILTER_LINEAR,
@@ -648,12 +720,108 @@ void createSampler(VulkanRenderDevice& renderDevice, VulkanTexture& texture)
         .addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT,
         .addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT,
         .mipLodBias = 0.f,
-        .anisotropyEnable = VK_FALSE,
-        .maxAnisotropy = 0.f,
+        .anisotropyEnable = anisotropyEnable,
+        .maxAnisotropy = maxAnisotropy,
+        .compareEnable = VK_FALSE,
+        .compareOp = VK_COMPARE_OP_NEVER,
         .minLod = 0.f,
-        .maxLod = 0.f,
+        .maxLod = static_cast<float>(mipLevels - 1),
         .unnormalizedCoordinates = VK_FALSE
     };
 
     vkCreateSampler(renderDevice.device, &samplerCreateInfo, nullptr, &texture.sampler);
+}
+
+void generateMipMaps(VulkanRenderDevice& renderDevice,
+                     VulkanImage& image,
+                     uint32_t width, uint32_t height,
+                     uint32_t mipLevels)
+{
+    VkCommandBuffer commandBuffer = beginSingleCommand(renderDevice);
+
+    int32_t mipWidth = width;
+    int32_t mipHeight = height;
+
+    VkImageMemoryBarrier imageMemoryBarrier {
+        .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+        .image = image.image,
+        .subresourceRange {
+            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+            .levelCount = 1, // transition only this level
+            .baseArrayLayer = 0,
+            .layerCount = 1
+        }
+    };
+
+    for (uint32_t i = 0; i < mipLevels - 1; ++i)
+    {
+        imageMemoryBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        imageMemoryBarrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+        imageMemoryBarrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+        imageMemoryBarrier.subresourceRange.baseMipLevel = i;
+
+        vkCmdPipelineBarrier(commandBuffer,
+                             VK_PIPELINE_STAGE_TRANSFER_BIT,
+                             VK_PIPELINE_STAGE_TRANSFER_BIT,
+                             0, 0, nullptr, 0, nullptr,
+                             1, &imageMemoryBarrier);
+
+        VkImageBlit blitRegion {
+            .srcSubresource {
+                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                .mipLevel = i,
+                .baseArrayLayer = 0,
+                .layerCount = 1
+            },
+            .srcOffsets {
+                {0, 0, 0},
+                {mipWidth, mipHeight, 1}
+            },
+            .dstSubresource {
+                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                .mipLevel = i + i,
+                .baseArrayLayer = 0,
+                .layerCount = 1
+            },
+            .dstOffsets {
+                {0, 0, 0},
+                {mipWidth / 2, mipHeight / 2, 1}
+            }
+        };
+
+        mipWidth /= 2;
+        mipHeight /= 2;
+
+        vkCmdBlitImage(commandBuffer,
+                       image.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                       image.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                       1, &blitRegion,
+                       VK_FILTER_LINEAR);
+
+        imageMemoryBarrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+        imageMemoryBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+        imageMemoryBarrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+        imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+        vkCmdPipelineBarrier(commandBuffer,
+                             VK_PIPELINE_STAGE_TRANSFER_BIT,
+                             VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+                             0, 0, nullptr, 0, nullptr,
+                             1, &imageMemoryBarrier);
+    }
+
+    imageMemoryBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    imageMemoryBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+    imageMemoryBarrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    imageMemoryBarrier.subresourceRange.baseMipLevel = mipLevels - 1;
+
+    vkCmdPipelineBarrier(commandBuffer,
+                         VK_PIPELINE_STAGE_TRANSFER_BIT,
+                         VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+                         0, 0, nullptr, 0, nullptr,
+                         1, &imageMemoryBarrier);
+
+    endSingleCommand(renderDevice, commandBuffer);
 }

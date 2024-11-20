@@ -8,6 +8,8 @@
 #include <vector>
 #include <optional>
 #include <glfw/glfw3.h>
+#include <glm/glm.hpp>
+#include <glm/gtc/integer.hpp>
 #include "vulkan_types.hpp"
 #include "debug.hpp"
 
@@ -55,15 +57,17 @@ void endSingleCommand(VulkanRenderDevice& renderDevice, VkCommandBuffer commandB
 VulkanImage createImage(VulkanRenderDevice& renderDevice,
                         VkFormat format,
                         uint32_t width, uint32_t height,
-                        VkImageUsageFlags usage);
+                        VkImageUsageFlags usage,
+                        uint32_t mipLevels = 1);
 void destroyImage(VulkanRenderDevice& renderDevice, VulkanImage& image);
 
-VkImageView createImageView(VulkanRenderDevice& renderDevice, VkImage image, VkFormat format);
+VkImageView createImageView(VulkanRenderDevice& renderDevice, VkImage image, VkFormat format, uint32_t mipLevels);
 
 void transitionImageLayout(VulkanRenderDevice& renderDevice,
                            VulkanImage& image,
                            VkImageLayout oldLayout,
-                           VkImageLayout newLayout);
+                           VkImageLayout newLayout,
+                           uint32_t mipLevels);
 
 void copyBufferToImage(VulkanRenderDevice& renderDevice,
                        VulkanBuffer& buffer,
@@ -71,7 +75,12 @@ void copyBufferToImage(VulkanRenderDevice& renderDevice,
                        uint32_t width, uint32_t height);
 
 VulkanTexture createTexture(VulkanRenderDevice& renderDevice, const std::string& filename);
+VulkanTexture createTextureWithMips(VulkanRenderDevice& renderDevice, const std::string& filename);
 void destroyTexture(VulkanRenderDevice& renderDevice, VulkanTexture& texture);
-void createSampler(VulkanRenderDevice& renderDevice, VulkanTexture& texture);
+void createSampler(VulkanRenderDevice& renderDevice, VulkanTexture& texture, uint32_t mipLevels = 1);
+void generateMipMaps(VulkanRenderDevice& renderDevice,
+                     VulkanImage& image,
+                     uint32_t width, uint32_t height,
+                     uint32_t mipLevels);
 
 #endif //VULKAN3DMODELVIEWER_VULKAN_FUNCTIONS_HPP

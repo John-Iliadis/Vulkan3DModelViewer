@@ -23,9 +23,10 @@ public:
     void run();
 
 private:
-    void initializeGLFW();
+    void update();
     void renderFrame();
 
+    void initializeGLFW();
     void createDepthBuffer();
     void createRenderPass();
     void createFramebuffers();
@@ -33,6 +34,8 @@ private:
     void createDescriptorPool();
     void createDescriptorSets();
     void destroyDescriptorResources();
+    void createPipelineLayout();
+    void createGraphicsPipeline();
 
     static void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods);
 
@@ -42,6 +45,8 @@ private:
     VulkanRenderDevice mRenderDevice;
 
     VkRenderPass mRenderPass;
+    VkPipelineLayout mPipelineLayout;
+    VkPipeline mGraphicsPipeline;
 
     VulkanImage mDepthImage;
     std::vector<VkFramebuffer> mSwapchainFramebuffers;

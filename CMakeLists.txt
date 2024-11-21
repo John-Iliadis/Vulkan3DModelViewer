@@ -52,3 +52,25 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE
 )
 
 set_target_properties(${PROJECT_NAME} PROPERTIES DEBUG_POSTFIX -d)
+
+# compile shaders
+set(SHADER_DIR ${PROJECT_SOURCE_DIR}/shaders)
+set(COMPILED_SHADER_DIR ${PROJECT_SOURCE_DIR}/bin/shaders)
+set(GLSLC_EXE ${DEPENDENCIES_DIR}/glslc/glslc.exe)
+file(GLOB GLSL_FILES ${SHADER_DIR}/*.vert ${SHADER_DIR}/*.frag)
+
+foreach (GLSL_FILE ${GLSL_FILES})
+    get_filename_component(FILENAME ${GLSL_FILE} NAME_WE)
+    set(SPIRV_FILE ${COMPILED_SHADER_DIR}/${FILENAME}.spv)
+
+    add_custom_command(
+            OUTPUT ${SPIRV_FILE}
+            COMMAND ${GLSLC_EXE} ${GLSL_FILE} -o ${SPIRV_FILE}
+            DEPENDS ${GLSL_FILE}
+            COMMENT "Compiling ${GLSL_FILE} to SPIR-V..."
+    )
+
+    list(APPEND SPIRV_FILES ${SPIRV_FILE})
+endforeach ()
+
+add_custom_target(Shaders ALL DEPENDS ${SPIRV_FILES})

@@ -6,6 +6,7 @@
 #define VULKAN3DMODELVIEWER_VULKAN_FUNCTIONS_HPP
 
 #include <vector>
+#include <fstream>
 #include <optional>
 #include <glfw/glfw3.h>
 #include <glm/glm.hpp>
@@ -96,5 +97,8 @@ void generateMipMaps(VulkanRenderDevice& renderDevice,
                      VulkanImage& image,
                      uint32_t width, uint32_t height,
                      uint32_t mipLevels);
+
+VkShaderModule createShaderModule(VulkanRenderDevice& renderDevice, const std::string& filename);
+
 
 #endif //VULKAN3DMODELVIEWER_VULKAN_FUNCTIONS_HPP

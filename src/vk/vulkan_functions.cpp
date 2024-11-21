@@ -884,3 +884,31 @@ void generateMipMaps(VulkanRenderDevice& renderDevice,
 
     endSingleCommand(renderDevice, commandBuffer);
 }
+
+VkShaderModule createShaderModule(VulkanRenderDevice& renderDevice, const std::string& filename)
+{
+    std::ifstream spirv(filename, std::ios::binary | std::ios::ate);
+
+    if (!spirv.is_open())
+        vulkanCheck(static_cast<VkResult>(~VK_SUCCESS), "File not open");
+
+    size_t byteCount = spirv.tellg();
+    char* code = new char[byteCount];
+    spirv.seekg(0);
+    spirv.read(code, byteCount);
+
+    VkShaderModule shaderModule;
+
+    VkShaderModuleCreateInfo shaderModuleCreateInfo {
+        .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+        .codeSize = byteCount,
+        .pCode = reinterpret_cast<uint32_t*>(code)
+    };
+
+    VkResult result = vkCreateShaderModule(renderDevice.device, &shaderModuleCreateInfo, nullptr, &shaderModule);
+    vulkanCheck(result, "Failed to create shader module.");
+
+    delete[] code;
+
+    return shaderModule;
+}

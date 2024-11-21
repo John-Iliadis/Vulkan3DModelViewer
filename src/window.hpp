@@ -12,6 +12,7 @@
 #include "vk/vulkan_types.hpp"
 #include "vk/vulkan_functions.hpp"
 #include "model/model.hpp"
+#include "camera/camera.hpp"
 
 
 class Window
@@ -23,19 +24,21 @@ public:
     void run();
 
 private:
-    void update();
-    void renderFrame();
-
     void initializeGLFW();
     void createDepthBuffer();
     void createRenderPass();
     void createFramebuffers();
     void createViewProjUBO();
+    void updateViewProjUBO();
     void createDescriptorPool();
     void createDescriptorSets();
     void destroyDescriptorResources();
     void createPipelineLayout();
     void createGraphicsPipeline();
+    void setupCamera();
+
+    void recordRenderCommands(uint32_t imageIndex);
+    void renderFrame();
 
     static void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods);
 
@@ -57,6 +60,7 @@ private:
     VkDescriptorSetLayout mLayout0;
     VkDescriptorSet mSet0;
 
+    Camera mCamera;
     Model mModel;
 };
 

@@ -16,7 +16,9 @@ add_executable(Vulkan3DModelViewer src/main.cpp
         src/model/model.hpp
         src/model/vertex.hpp
         src/model/mesh.cpp
-        src/model/mesh.hpp)
+        src/model/mesh.hpp
+        src/camera/camera.cpp
+        src/camera/camera.hpp)
 
 set(DEPENDENCIES_DIR ${PROJECT_SOURCE_DIR}/dependencies)
 set(GLFW_DIR ${DEPENDENCIES_DIR}/glfw)
@@ -49,6 +51,7 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE
     GLFW_INCLUDE_VULKAN
     STB_IMAGE_IMPLEMENTATION
     GLM_FORCE_DEPTH_ZERO_TO_ONE
+    GLM_FORCE_RADIANS
 )
 
 set_target_properties(${PROJECT_NAME} PROPERTIES DEBUG_POSTFIX -d)

@@ -54,6 +54,14 @@ void destroyModel(Model& model, VulkanRenderDevice& renderDevice)
         destroyMesh(mesh, renderDevice);
 }
 
+void renderModel(Model& model, VkCommandBuffer commandBuffer)
+{
+    for (Mesh& mesh : model.meshes)
+    {
+        renderMesh(mesh, commandBuffer);
+    }
+}
+
 void processNode(Model& model, VulkanRenderDevice& renderDevice, aiNode* node, const aiScene* scene)
 {
     for (uint32_t i = 0; i < node->mNumMeshes; ++i)
@@ -74,7 +82,7 @@ void processMesh(Model& model, VulkanRenderDevice& renderDevice, aiMesh& mesh, c
     std::vector<uint32_t> indices = getIndices(mesh);
 
     VulkanBuffer vertexBuffer = createVertexBuffer(renderDevice, vertices.size() * sizeof(Vertex), vertices.data());
-    VulkanBuffer indexBuffer = createIndexBuffer(renderDevice, indices.size() * sizeof(uint32_t), indices.data());
+    IndexBuffer indexBuffer = createIndexBuffer(renderDevice, indices.size() * sizeof(uint32_t), indices.data());
 
     model.meshes.emplace_back(vertexBuffer, indexBuffer);
 }

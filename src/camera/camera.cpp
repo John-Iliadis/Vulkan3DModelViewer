@@ -21,7 +21,6 @@ Camera::Camera()
 Camera::Camera(float fovy, float width, float height, float near, float far)
     : mView(1.f)
     , mProjection(glm::perspective(fovy, width / height, near, far))
-    , mViewProjection(mProjection)
     , mPosition()
     , mAngleX()
     , mAngleZ()
@@ -29,6 +28,8 @@ Camera::Camera(float fovy, float width, float height, float near, float far)
     , mNear(near)
     , mFar(far)
 {
+    mProjection[1][1] *= -1;
+    mViewProjection = mProjection;
 }
 
 void Camera::setPosition(float x, float y, float z)
@@ -52,6 +53,7 @@ void Camera::setRotation(float angleX, float angleZ)
 void Camera::resize(float width, float height)
 {
     mProjection = glm::perspective(mFov, width / height, mNear, mFar);
+    mProjection[1][1] *= -1;
     mViewProjection = mProjection * mView;
 }
 

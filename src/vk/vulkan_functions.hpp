@@ -34,6 +34,9 @@ void createSwapchain(VulkanInstance& instance, VulkanRenderDevice& renderDevice)
 void createSwapchainImages(VulkanRenderDevice& renderDevice);
 
 void createCommandPool(VulkanRenderDevice& renderDevice);
+void createCommandBuffer(VulkanRenderDevice& renderDevice);
+
+VkSemaphore createSemaphore(VulkanRenderDevice& renderDevice);
 
 VulkanBuffer createBuffer(VulkanRenderDevice& renderDevice,
                           VkDeviceSize size,
@@ -53,7 +56,9 @@ VulkanBuffer createBufferWithStaging(VulkanRenderDevice& renderDevice,
                                      void* bufferData);
 
 VulkanBuffer createVertexBuffer(VulkanRenderDevice& renderDevice, VkDeviceSize size, void* bufferData);
-VulkanBuffer createIndexBuffer(VulkanRenderDevice& renderDevice, VkDeviceSize size, void* bufferData);
+
+IndexBuffer createIndexBuffer(VulkanRenderDevice& renderDevice, VkDeviceSize size, void* bufferData);
+void destroyIndexBuffer(VulkanRenderDevice& renderDevice, IndexBuffer& indexBuffer);
 
 void copyBuffer(VulkanRenderDevice& renderDevice, VulkanBuffer& srcBuffer, VulkanBuffer& dstBuffer, VkDeviceSize size);
 

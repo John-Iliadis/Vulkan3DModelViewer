@@ -92,6 +92,9 @@ void createRenderingDevice(VulkanInstance& instance, VulkanRenderDevice& renderD
     createSwapchain(instance, renderDevice);
     createSwapchainImages(renderDevice);
     createCommandPool(renderDevice);
+    createCommandBuffer(renderDevice);
+    renderDevice.imageReadySemaphore = createSemaphore(renderDevice);
+    renderDevice.renderFinishedSemaphore = createSemaphore(renderDevice);
 }
 
 void destroyRenderingDevice(VulkanRenderDevice& renderDevice)
@@ -101,6 +104,8 @@ void destroyRenderingDevice(VulkanRenderDevice& renderDevice)
         vkDestroyImageView(renderDevice.device, imageView, nullptr);
     }
 
+    vkDestroySemaphore(renderDevice.device, renderDevice.imageReadySemaphore, nullptr);
+    vkDestroySemaphore(renderDevice.device, renderDevice.renderFinishedSemaphore, nullptr);
     vkDestroyCommandPool(renderDevice.device, renderDevice.commandPool, nullptr);
     vkDestroySwapchainKHR(renderDevice.device, renderDevice.swapchain, nullptr);
     vkDestroyDevice(renderDevice.device, nullptr);
@@ -273,6 +278,7 @@ void createCommandPool(VulkanRenderDevice& renderDevice)
 {
     VkCommandPoolCreateInfo commandPoolCreateInfo {
         .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+        .flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
         .queueFamilyIndex = renderDevice.graphicsQueueFamilyIndex
     };
 
@@ -282,6 +288,38 @@ void createCommandPool(VulkanRenderDevice& renderDevice)
                                           &renderDevice.commandPool);
 
     vulkanCheck(result, "Failed to create command pool.");
+}
+
+void createCommandBuffer(VulkanRenderDevice& renderDevice)
+{
+    VkCommandBufferAllocateInfo commandBufferAllocateInfo {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+        .commandPool = renderDevice.commandPool,
+        .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+        .commandBufferCount = 1
+    };
+
+    VkResult result = vkAllocateCommandBuffers(renderDevice.device,
+                                               &commandBufferAllocateInfo,
+                                               &renderDevice.commandBuffer);
+    vulkanCheck(result, "Failed to allocate command buffer.");
+}
+
+VkSemaphore createSemaphore(VulkanRenderDevice& renderDevice)
+{
+    VkSemaphore semaphore;
+
+    VkSemaphoreCreateInfo semaphoreCreateInfo {
+        .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
+    };
+
+    VkResult result = vkCreateSemaphore(renderDevice.device,
+                                        &semaphoreCreateInfo,
+                                        nullptr,
+                                        &semaphore);
+    vulkanCheck(result, "Failed to create semaphore.");
+
+    return semaphore;
 }
 
 VulkanBuffer createBuffer(VulkanRenderDevice& renderDevice,
@@ -386,12 +424,23 @@ VulkanBuffer createVertexBuffer(VulkanRenderDevice& renderDevice, VkDeviceSize s
                                    bufferData);
 }
 
-VulkanBuffer createIndexBuffer(VulkanRenderDevice& renderDevice, VkDeviceSize size, void* bufferData)
+IndexBuffer createIndexBuffer(VulkanRenderDevice& renderDevice, VkDeviceSize size, void* bufferData)
 {
-    return createBufferWithStaging(renderDevice,
-                                   size,
-                                   VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-                                   bufferData);
+    IndexBuffer indexBuffer;
+
+    indexBuffer.buffer = createBufferWithStaging(renderDevice,
+                                                 size,
+                                                 VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                                                 bufferData);
+    indexBuffer.count = size / sizeof(uint32_t);
+
+    return indexBuffer;
+}
+
+void destroyIndexBuffer(VulkanRenderDevice& renderDevice, IndexBuffer& indexBuffer)
+{
+    destroyBuffer(renderDevice, indexBuffer.buffer);
+    indexBuffer = IndexBuffer();
 }
 
 void copyBuffer(VulkanRenderDevice& renderDevice, VulkanBuffer& srcBuffer, VulkanBuffer& dstBuffer, VkDeviceSize size)

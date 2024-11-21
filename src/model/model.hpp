@@ -23,6 +23,8 @@ struct Model
 void createModel(Model& model, VulkanRenderDevice& renderDevice, const std::string& filename);
 void destroyModel(Model& model, VulkanRenderDevice& renderDevice);
 
+void renderModel(Model& model, VkCommandBuffer commandBuffer);
+
 void processNode(Model& model, VulkanRenderDevice& renderDevice, aiNode* node, const aiScene* scene);
 void processMesh(Model& model, VulkanRenderDevice& renderDevice, aiMesh& mesh, const aiScene* scene);
 

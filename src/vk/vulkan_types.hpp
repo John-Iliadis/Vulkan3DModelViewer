@@ -21,8 +21,14 @@ struct VulkanRenderDevice
     VkPhysicalDevice physicalDevice;
     VkDevice device;
     VkQueue graphicsQueue;
+
     VkCommandPool commandPool;
+    VkCommandBuffer commandBuffer;
+
     uint32_t graphicsQueueFamilyIndex;
+
+    VkSemaphore imageReadySemaphore;
+    VkSemaphore renderFinishedSemaphore;
 
     VkSwapchainKHR swapchain;
     std::vector<VkImage> swapchainImages;
@@ -35,6 +41,12 @@ struct VulkanBuffer
 {
     VkBuffer buffer;
     VkDeviceMemory memory;
+};
+
+struct IndexBuffer
+{
+    VulkanBuffer buffer;
+    uint32_t count;
 };
 
 struct VulkanImage

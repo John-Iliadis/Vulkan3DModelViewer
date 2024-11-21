@@ -13,13 +13,12 @@
 struct Mesh
 {
     VulkanBuffer vertexBuffer;
-    VulkanBuffer indexBuffer;
+    IndexBuffer indexBuffer;
 };
 
-void createMesh(Mesh& mesh, VulkanBuffer vertexBuffer, VulkanBuffer indexBuffer);
+void createMesh(Mesh& mesh, VulkanBuffer& vertexBuffer, IndexBuffer& indexBuffer);
 void destroyMesh(Mesh& mesh, VulkanRenderDevice& renderDevice);
 
-// todo: implement
 void renderMesh(Mesh& mesh, VkCommandBuffer commandBuffer);
 
 #endif //VULKAN3DMODELVIEWER_MESH_HPP

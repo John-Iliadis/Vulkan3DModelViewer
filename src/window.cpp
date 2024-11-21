@@ -30,6 +30,9 @@ Window::Window()
     createRenderPass();
     createFramebuffers();
     createGraphicsPipeline();
+
+    setupCamera();
+    updateViewProjUBO();
     createModel(mModel, mRenderDevice, "../assets/backpack/backpack.obj");
 }
 
@@ -75,15 +78,6 @@ void Window::initializeGLFW()
 
     glfwSetWindowUserPointer(mWindow, this);
     glfwSetKeyCallback(mWindow, keyCallback);
-}
-
-void Window::update()
-{
-
-}
-
-void Window::renderFrame()
-{
 }
 
 void Window::createDepthBuffer()
@@ -179,6 +173,13 @@ void Window::createViewProjUBO()
                                 sizeof(glm::mat4),
                                 VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
                                 VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+}
+
+void Window::updateViewProjUBO()
+{
+    VkCommandBuffer commandBuffer = beginSingleCommand(mRenderDevice);
+    vkCmdUpdateBuffer(commandBuffer, mViewProjUBO.buffer, 0, sizeof(glm::mat4), &mCamera.viewProjection());
+    endSingleCommand(mRenderDevice, commandBuffer);
 }
 
 void Window::keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods)
@@ -415,4 +416,106 @@ void Window::createGraphicsPipeline()
 
     vkDestroyShaderModule(mRenderDevice.device, vertexShader, nullptr);
     vkDestroyShaderModule(mRenderDevice.device, fragmentShader, nullptr);
+}
+
+void Window::setupCamera()
+{
+    mCamera = Camera(45.f, INITIAL_WINDOW_WIDTH, INITIAL_WINDOW_HEIGHT);
+    mCamera.setPosition(0, 0, 5);
+}
+
+void Window::recordRenderCommands(uint32_t imageIndex)
+{
+    VkCommandBufferBeginInfo beginInfo {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+        .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT
+    };
+
+    vkBeginCommandBuffer(mRenderDevice.commandBuffer, &beginInfo);
+
+    static std::vector<VkClearValue> clearValues {
+        {.color = {0.2f, 0.2f, 0.2f, 1.f}},
+        {.depthStencil = {1.f, 0}}
+    };
+
+    VkRenderPassBeginInfo renderPassBeginInfo {
+        .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
+        .renderPass = mRenderPass,
+        .framebuffer = mSwapchainFramebuffers.at(imageIndex),
+        .renderArea {
+            .offset = {0, 0},
+            .extent = mRenderDevice.swapchainExtent
+        },
+        .clearValueCount = static_cast<uint32_t>(clearValues.size()),
+        .pClearValues = clearValues.data()
+    };
+
+    VkViewport viewport {
+        .x = 0,
+        .y = 0,
+        .width = static_cast<float>(mRenderDevice.swapchainExtent.width),
+        .height = static_cast<float>(mRenderDevice.swapchainExtent.height),
+        .minDepth = 0.f,
+        .maxDepth = 1.f
+    };
+
+    VkRect2D scissor {
+        .offset = {0, 0},
+        .extent = mRenderDevice.swapchainExtent
+    };
+
+    vkCmdBeginRenderPass(mRenderDevice.commandBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+    vkCmdBindPipeline(mRenderDevice.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mGraphicsPipeline);
+    vkCmdSetViewport(mRenderDevice.commandBuffer, 0, 1, &viewport);
+    vkCmdSetScissor(mRenderDevice.commandBuffer, 0, 1, &scissor);
+    vkCmdBindDescriptorSets(mRenderDevice.commandBuffer,
+                            VK_PIPELINE_BIND_POINT_GRAPHICS,
+                            mPipelineLayout,
+                            0, 1, &mSet0,
+                            0, nullptr);
+    renderModel(mModel, mRenderDevice.commandBuffer);
+    vkCmdEndRenderPass(mRenderDevice.commandBuffer);
+
+    vkEndCommandBuffer(mRenderDevice.commandBuffer);
+}
+
+void Window::renderFrame()
+{
+    uint32_t imageIndex;
+    vkAcquireNextImageKHR(mRenderDevice.device,
+                          mRenderDevice.swapchain,
+                          UINT64_MAX,
+                          mRenderDevice.imageReadySemaphore,
+                          VK_NULL_HANDLE,
+                          &imageIndex);
+
+    recordRenderCommands(imageIndex);
+
+    VkPipelineStageFlags dstStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+
+    VkSubmitInfo renderSubmitInfo {
+        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+        .waitSemaphoreCount = 1,
+        .pWaitSemaphores = &mRenderDevice.imageReadySemaphore,
+        .pWaitDstStageMask = &dstStage,
+        .commandBufferCount = 1,
+        .pCommandBuffers = &mRenderDevice.commandBuffer,
+        .signalSemaphoreCount = 1,
+        .pSignalSemaphores = &mRenderDevice.renderFinishedSemaphore
+    };
+
+    vkQueueSubmit(mRenderDevice.graphicsQueue, 1, &renderSubmitInfo, VK_NULL_HANDLE);
+
+    VkPresentInfoKHR presentInfo {
+        .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
+        .waitSemaphoreCount = 1,
+        .pWaitSemaphores = &mRenderDevice.renderFinishedSemaphore,
+        .swapchainCount = 1,
+        .pSwapchains = &mRenderDevice.swapchain,
+        .pImageIndices = &imageIndex
+    };
+
+    vkQueuePresentKHR(mRenderDevice.graphicsQueue, &presentInfo);
+
+    vkDeviceWaitIdle(mRenderDevice.device);
 }

@@ -42,7 +42,7 @@ Window::~Window()
     vkDestroyPipeline(mRenderDevice.device, mGraphicsPipeline, nullptr);
     vkDestroyPipelineLayout(mRenderDevice.device, mPipelineLayout, nullptr);
     destroyModel(mModel, mRenderDevice);
-    std::for_each(mSwapchainFramebuffers.begin(), mSwapchainFramebuffers.end(),
+    std::for_each(mFramebuffers.begin(), mFramebuffers.end(),
                   [this] (auto fb) { vkDestroyFramebuffer(mRenderDevice.device, fb,nullptr); });
     vkDestroyRenderPass(mRenderDevice.device, mRenderPass, nullptr);
     destroyImage(mRenderDevice, mDepthImage);
@@ -78,6 +78,7 @@ void Window::initializeGLFW()
 
     glfwSetWindowUserPointer(mWindow, this);
     glfwSetKeyCallback(mWindow, keyCallback);
+    glfwSetMouseButtonCallback(mWindow, mouseButtonCallback);
 }
 
 void Window::createDepthBuffer()
@@ -146,7 +147,7 @@ void Window::createRenderPass()
 void Window::createFramebuffers()
 {
     size_t imageCount = mRenderDevice.swapchainImages.size();
-    mSwapchainFramebuffers.resize(imageCount);
+    mFramebuffers.resize(imageCount);
 
     for (size_t i = 0; i < imageCount; ++i)
     {
@@ -162,7 +163,7 @@ void Window::createFramebuffers()
             .layers = 1
         };
 
-        VkResult result = vkCreateFramebuffer(mRenderDevice.device, &framebufferCreateInfo, nullptr, &mSwapchainFramebuffers.at(i));
+        VkResult result = vkCreateFramebuffer(mRenderDevice.device, &framebufferCreateInfo, nullptr, &mFramebuffers.at(i));
         vulkanCheck(result, "Failed to create framebuffer.");
     }
 }
@@ -180,14 +181,6 @@ void Window::updateViewProjUBO()
     VkCommandBuffer commandBuffer = beginSingleCommand(mRenderDevice);
     vkCmdUpdateBuffer(commandBuffer, mViewProjUBO.buffer, 0, sizeof(glm::mat4), &mCamera.viewProjection());
     endSingleCommand(mRenderDevice, commandBuffer);
-}
-
-void Window::keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods)
-{
-    Window& appWindow = *reinterpret_cast<Window*>(glfwGetWindowUserPointer(window));
-
-    if (key == GLFW_KEY_ESCAPE)
-        glfwSetWindowShouldClose(window, GLFW_TRUE);
 }
 
 void Window::createDescriptorPool()
@@ -441,7 +434,7 @@ void Window::recordRenderCommands(uint32_t imageIndex)
     VkRenderPassBeginInfo renderPassBeginInfo {
         .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
         .renderPass = mRenderPass,
-        .framebuffer = mSwapchainFramebuffers.at(imageIndex),
+        .framebuffer = mFramebuffers.at(imageIndex),
         .renderArea {
             .offset = {0, 0},
             .extent = mRenderDevice.swapchainExtent
@@ -482,12 +475,17 @@ void Window::recordRenderCommands(uint32_t imageIndex)
 void Window::renderFrame()
 {
     uint32_t imageIndex;
-    vkAcquireNextImageKHR(mRenderDevice.device,
-                          mRenderDevice.swapchain,
-                          UINT64_MAX,
-                          mRenderDevice.imageReadySemaphore,
-                          VK_NULL_HANDLE,
-                          &imageIndex);
+    VkResult result = vkAcquireNextImageKHR(mRenderDevice.device,
+                                            mRenderDevice.swapchain,
+                                            UINT64_MAX,
+                                            mRenderDevice.imageReadySemaphore,
+                                            VK_NULL_HANDLE,
+                                            &imageIndex);
+    if (result == VK_ERROR_OUT_OF_DATE_KHR)
+    {
+        resize();
+        return;
+    }
 
     recordRenderCommands(imageIndex);
 
@@ -515,7 +513,60 @@ void Window::renderFrame()
         .pImageIndices = &imageIndex
     };
 
-    vkQueuePresentKHR(mRenderDevice.graphicsQueue, &presentInfo);
+    result = vkQueuePresentKHR(mRenderDevice.graphicsQueue, &presentInfo);
+    if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR)
+        resize();
 
     vkDeviceWaitIdle(mRenderDevice.device);
+}
+
+void Window::resize()
+{
+    int width, height;
+    glfwGetFramebufferSize(mWindow, &width, &height);
+
+    while (width == 0 || height == 0)
+    {
+        glfwWaitEvents();
+        glfwGetFramebufferSize(mWindow, &width, &height);
+    }
+
+    vkDeviceWaitIdle(mRenderDevice.device);
+
+    // destroy resources
+    for (size_t i = 0, size = mRenderDevice.swapchainImages.size(); i < size; ++i)
+    {
+        vkDestroyFramebuffer(mRenderDevice.device, mFramebuffers.at(i), nullptr);
+        vkDestroyImageView(mRenderDevice.device, mRenderDevice.swapchainImageViews.at(i), nullptr);
+    }
+
+    destroyImage(mRenderDevice, mDepthImage);
+    vkDestroySwapchainKHR(mRenderDevice.device, mRenderDevice.swapchain, nullptr);
+
+    // recreate resources
+    createSwapchain(mInstance, mRenderDevice);
+    createSwapchainImages(mRenderDevice);
+    createDepthBuffer();
+    createFramebuffers();
+
+    // update resources
+    mCamera.resize(mRenderDevice.swapchainExtent.width, mRenderDevice.swapchainExtent.height);
+    updateViewProjUBO();
+
+#ifdef DEBUG_MODE
+    std::cout << "Resized: " << mRenderDevice.swapchainExtent.width << ' ' << mRenderDevice.swapchainExtent.height << '\n';
+#endif
+}
+
+void Window::keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods)
+{
+    Window& appWindow = *reinterpret_cast<Window*>(glfwGetWindowUserPointer(window));
+
+    if (key == GLFW_KEY_ESCAPE)
+        glfwSetWindowShouldClose(window, GLFW_TRUE);
+}
+
+void Window::mouseButtonCallback(GLFWwindow *window, int button, int action, int mods)
+{
+    Window& appWindow = *reinterpret_cast<Window*>(glfwGetWindowUserPointer(window));
 }

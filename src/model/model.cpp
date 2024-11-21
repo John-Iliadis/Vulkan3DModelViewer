@@ -56,7 +56,7 @@ void destroyModel(Model& model, VulkanRenderDevice& renderDevice)
 
 void processNode(Model& model, VulkanRenderDevice& renderDevice, aiNode* node, const aiScene* scene)
 {
-    for (uint32_t i = 0; node->mNumMeshes; ++i)
+    for (uint32_t i = 0; i < node->mNumMeshes; ++i)
     {
         uint32_t meshIndex = node->mMeshes[i];
         aiMesh& mesh = *scene->mMeshes[meshIndex];

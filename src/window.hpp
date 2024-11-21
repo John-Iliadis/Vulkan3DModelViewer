@@ -25,6 +25,11 @@ public:
 private:
     void initializeGLFW();
     void renderFrame();
+
+    void createDepthBuffer();
+    void createRenderPass();
+    void createFramebuffers();
+    void createViewProjUBO();
     void createDescriptorPool();
     void createDescriptorSets();
     void destroyDescriptorResources();
@@ -36,13 +41,18 @@ private:
     VulkanInstance mInstance;
     VulkanRenderDevice mRenderDevice;
 
+    VkRenderPass mRenderPass;
+
+    VulkanImage mDepthImage;
+    std::vector<VkFramebuffer> mSwapchainFramebuffers;
+
+    VulkanBuffer mViewProjUBO;
+
     VkDescriptorPool mDescriptorPool;
     VkDescriptorSetLayout mLayout0;
-    VkDescriptorSetLayout mLayout1;
     VkDescriptorSet mSet0;
-    VkDescriptorSet mSet1;
 
-    Model testModel;
+    Model mModel;
 };
 
 

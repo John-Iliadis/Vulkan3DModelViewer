@@ -67,10 +67,15 @@ VulkanImage createImage(VulkanRenderDevice& renderDevice,
                         VkFormat format,
                         uint32_t width, uint32_t height,
                         VkImageUsageFlags usage,
+                        VkImageAspectFlags aspectMask,
                         uint32_t mipLevels = 1);
 void destroyImage(VulkanRenderDevice& renderDevice, VulkanImage& image);
 
-VkImageView createImageView(VulkanRenderDevice& renderDevice, VkImage image, VkFormat format, uint32_t mipLevels);
+VkImageView createImageView(VulkanRenderDevice& renderDevice,
+                            VkImage image,
+                            VkFormat format,
+                            VkImageAspectFlags aspectMask,
+                            uint32_t mipLevels);
 
 void transitionImageLayout(VulkanRenderDevice& renderDevice,
                            VulkanImage& image,

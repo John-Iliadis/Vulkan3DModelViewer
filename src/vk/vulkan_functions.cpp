@@ -263,7 +263,9 @@ void createSwapchainImages(VulkanRenderDevice& renderDevice)
     {
         renderDevice.swapchainImageViews.at(i) = createImageView(renderDevice,
                                                                  renderDevice.swapchainImages.at(i),
-                                                                 renderDevice.swapchainFormat, 1);
+                                                                 renderDevice.swapchainFormat,
+                                                                 VK_IMAGE_ASPECT_COLOR_BIT,
+                                                                 1);
     }
 }
 
@@ -467,6 +469,7 @@ VulkanImage createImage(VulkanRenderDevice& renderDevice,
                         VkFormat format,
                         uint32_t width, uint32_t height,
                         VkImageUsageFlags usage,
+                        VkImageAspectFlags aspectMask,
                         uint32_t mipLevels)
 {
     VulkanImage image;
@@ -511,7 +514,7 @@ VulkanImage createImage(VulkanRenderDevice& renderDevice,
     vkBindImageMemory(renderDevice.device, image.image, image.memory, 0);
 
     // create image view
-    image.imageView = createImageView(renderDevice, image.image, format, mipLevels);
+    image.imageView = createImageView(renderDevice, image.image, format, aspectMask, mipLevels);
 
     return image;
 }
@@ -523,7 +526,11 @@ void destroyImage(VulkanRenderDevice& renderDevice, VulkanImage& image)
     vkFreeMemory(renderDevice.device, image.memory, nullptr);
 }
 
-VkImageView createImageView(VulkanRenderDevice& renderDevice, VkImage image, VkFormat format, uint32_t mipLevels)
+VkImageView createImageView(VulkanRenderDevice& renderDevice,
+                            VkImage image,
+                            VkFormat format,
+                            VkImageAspectFlags aspectMask,
+                            uint32_t mipLevels)
 {
     VkImageView imageView;
 
@@ -533,7 +540,7 @@ VkImageView createImageView(VulkanRenderDevice& renderDevice, VkImage image, VkF
         .viewType = VK_IMAGE_VIEW_TYPE_2D,
         .format = format,
         .subresourceRange {
-            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+            .aspectMask = aspectMask,
             .baseMipLevel = 0,
             .levelCount = mipLevels,
             .baseArrayLayer = 0,
@@ -662,7 +669,11 @@ VulkanTexture createTexture(VulkanRenderDevice& renderDevice, const std::string&
         VK_IMAGE_USAGE_SAMPLED_BIT
     };
 
-    texture.image = createImage(renderDevice, VK_FORMAT_R8G8B8A8_UNORM, width, height, imageUsageFlags);
+    texture.image = createImage(renderDevice,
+                                VK_FORMAT_R8G8B8A8_UNORM,
+                                width, height,
+                                VK_IMAGE_ASPECT_COLOR_BIT,
+                                imageUsageFlags);
 
     // transition image layout for staging memory copy operation
     transitionImageLayout(renderDevice,

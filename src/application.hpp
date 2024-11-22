@@ -63,7 +63,9 @@ private:
 
     VkDescriptorPool mDescriptorPool;
     VkDescriptorSetLayout mLayout0;
+    VkDescriptorSetLayout mLayout1;
     VkDescriptorSet mSet0;
+    VkDescriptorSet mSet1;
 
     Camera mCamera;
     Model mModel;

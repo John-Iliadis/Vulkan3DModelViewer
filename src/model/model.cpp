@@ -35,6 +35,8 @@ static constexpr int remove_primitives
 
 void createModel(Model& model, VulkanRenderDevice& renderDevice, const std::string& filename)
 {
+    model.directory = filename.substr(0, filename.find_last_of('/') + 1);
+
     Assimp::Importer importer;
     importer.SetPropertyInteger(AI_CONFIG_PP_RVC_FLAGS, remove_components);
     importer.SetPropertyInteger(AI_CONFIG_PP_SBP_REMOVE, remove_primitives);
@@ -50,15 +52,22 @@ void createModel(Model& model, VulkanRenderDevice& renderDevice, const std::stri
 
 void destroyModel(Model& model, VulkanRenderDevice& renderDevice)
 {
+    for (auto& [path, texture] : model.textures)
+        destroyTexture(renderDevice, texture);
+
     for (Mesh& mesh : model.meshes)
         destroyMesh(mesh, renderDevice);
 }
 
-void renderModel(Model& model, VkCommandBuffer commandBuffer)
+void renderModel(Model& model,
+                 VulkanRenderDevice& renderDevice,
+                 VkDescriptorSet descriptorSet,
+                 VkPipelineLayout pipelineLayout,
+                 VkCommandBuffer commandBuffer)
 {
     for (Mesh& mesh : model.meshes)
     {
-        renderMesh(mesh, commandBuffer);
+        renderMesh(mesh, renderDevice, descriptorSet, pipelineLayout, commandBuffer);
     }
 }
 
@@ -84,7 +93,12 @@ void processMesh(Model& model, VulkanRenderDevice& renderDevice, aiMesh& mesh, c
     VulkanBuffer vertexBuffer = createVertexBuffer(renderDevice, vertices.size() * sizeof(Vertex), vertices.data());
     IndexBuffer indexBuffer = createIndexBuffer(renderDevice, indices.size() * sizeof(uint32_t), indices.data());
 
-    model.meshes.emplace_back(vertexBuffer, indexBuffer);
+    aiMaterial& material = *scene->mMaterials[mesh.mMaterialIndex];
+    VulkanTexture diffuseMap = getTexture(model, renderDevice, material, aiTextureType_DIFFUSE);
+    VulkanTexture specularMap = getTexture(model, renderDevice, material, aiTextureType_SPECULAR);
+    VulkanTexture normalMap = getTexture(model, renderDevice, material, aiTextureType_HEIGHT);
+
+    model.meshes.emplace_back(vertexBuffer, indexBuffer, diffuseMap, specularMap, normalMap);
 }
 
 std::vector<Vertex> getVertices(aiMesh& mesh)
@@ -132,4 +146,29 @@ std::vector<uint32_t> getIndices(aiMesh& mesh)
     }
 
     return indices;
+}
+
+VulkanTexture getTexture(Model& model,
+                         VulkanRenderDevice& renderDevice,
+                         aiMaterial& material,
+                         aiTextureType textureType)
+{
+    aiString filename;
+
+    if (material.GetTextureCount(textureType))
+    {
+        material.GetTexture(textureType, 0, &filename);
+
+        std::string path = model.directory + std::string(filename.C_Str());
+
+        if (model.textures.contains(path))
+            return model.textures.at(path);
+
+        VulkanTexture texture = createTextureWithMips(renderDevice, path);
+        model.textures.emplace(path, texture);
+
+        return texture;
+    }
+
+    return {};
 }

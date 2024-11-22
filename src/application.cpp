@@ -18,6 +18,9 @@ Application::Application()
     , mModelViewProjUBO()
     , mDescriptorPool()
     , mLayout0()
+    , mLayout1()
+    , mSet0()
+    , mSet1()
     , mLeftMouseButtonPressed()
     , mCursorPosX()
     , mCursorPosY()
@@ -235,7 +238,43 @@ void Application::createDescriptorSets()
     VkResult result = vkCreateDescriptorSetLayout(mRenderDevice.device, &layout0CreateInfo, nullptr, &mLayout0);
     vulkanCheck(result, "Failed to create layout 0.");
 
-    std::vector<VkDescriptorSetLayout> layouts {mLayout0};
+    VkDescriptorSetLayoutBinding layout1Binding0 {
+        .binding = 0,
+        .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+        .descriptorCount = 1,
+        .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT
+    };
+
+    VkDescriptorSetLayoutBinding layout1Binding1 {
+        .binding = 1,
+        .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+        .descriptorCount = 1,
+        .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT
+    };
+
+    VkDescriptorSetLayoutBinding layout1Binding2 {
+        .binding = 2,
+        .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+        .descriptorCount = 1,
+        .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT
+    };
+
+    std::vector<VkDescriptorSetLayoutBinding> layout1Bindings {
+        layout1Binding0,
+        layout1Binding1,
+        layout1Binding2
+    };
+
+    VkDescriptorSetLayoutCreateInfo layout1CreateInfo {
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+        .bindingCount = static_cast<uint32_t>(layout1Bindings.size()),
+        .pBindings = layout1Bindings.data()
+    };
+
+    result = vkCreateDescriptorSetLayout(mRenderDevice.device, &layout1CreateInfo, nullptr, &mLayout1);
+    vulkanCheck(result, "Failed to create layout 1.");
+
+    std::vector<VkDescriptorSetLayout> layouts {mLayout0, mLayout1};
 
     VkDescriptorSetAllocateInfo descriptorSetAllocateInfo {
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
@@ -244,7 +283,7 @@ void Application::createDescriptorSets()
         .pSetLayouts = layouts.data()
     };
 
-    VkDescriptorSet* sets[] {&mSet0};
+    VkDescriptorSet* sets[] {&mSet0, &mSet1};
 
     result = vkAllocateDescriptorSets(mRenderDevice.device, &descriptorSetAllocateInfo, sets[0]);
     vulkanCheck(result, "Failed to allocate descriptor set.");
@@ -278,10 +317,15 @@ void Application::destroyDescriptorResources()
 
 void Application::createPipelineLayout()
 {
+    std::array<VkDescriptorSetLayout, 2> descriptorSetLayouts {
+        mLayout0,
+        mLayout1
+    };
+
     VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
-        .setLayoutCount = 1,
-        .pSetLayouts = &mLayout0,
+        .setLayoutCount = static_cast<uint32_t>(descriptorSetLayouts.size()),
+        .pSetLayouts = descriptorSetLayouts.data(),
     };
 
     VkResult result = vkCreatePipelineLayout(mRenderDevice.device,
@@ -479,7 +523,7 @@ void Application::recordRenderCommands(uint32_t imageIndex)
                             mPipelineLayout,
                             0, 1, &mSet0,
                             0, nullptr);
-    renderModel(mModel, mRenderDevice.commandBuffer);
+    renderModel(mModel, mRenderDevice, mSet1, mPipelineLayout, mRenderDevice.commandBuffer);
     vkCmdEndRenderPass(mRenderDevice.commandBuffer);
 
     vkEndCommandBuffer(mRenderDevice.commandBuffer);

@@ -185,7 +185,9 @@ void createDevice(VulkanRenderDevice& renderDevice)
 
     std::vector<const char*> extensions = getDeviceExtensions();
 
-    VkPhysicalDeviceFeatures physicalDeviceFeatures {};
+    VkPhysicalDeviceFeatures physicalDeviceFeatures {
+        .samplerAnisotropy = VK_TRUE
+    };
 
     VkDeviceCreateInfo deviceCreateInfo {
         .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
@@ -619,7 +621,7 @@ void transitionImageLayout(VulkanRenderDevice& renderDevice,
         .subresourceRange {
             .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
             .baseMipLevel = 0,
-            .levelCount = mipLevels,
+            .levelCount = mipLevels, // transition all mip levels
             .baseArrayLayer = 0,
             .layerCount = 1
         }
@@ -721,8 +723,8 @@ VulkanTexture createTexture(VulkanRenderDevice& renderDevice, const std::string&
     texture.image = createImage(renderDevice,
                                 VK_FORMAT_R8G8B8A8_UNORM,
                                 width, height,
-                                VK_IMAGE_ASPECT_COLOR_BIT,
-                                imageUsageFlags);
+                                imageUsageFlags,
+                                VK_IMAGE_ASPECT_COLOR_BIT);
 
     // transition image layout for staging memory copy operation
     transitionImageLayout(renderDevice,
@@ -745,7 +747,7 @@ VulkanTexture createTexture(VulkanRenderDevice& renderDevice, const std::string&
     destroyBuffer(renderDevice, stagingBuffer);
 
     // create sampler
-    createSampler(renderDevice, texture);
+    createSampler(renderDevice, texture, 1);
 
     return texture;
 }
@@ -778,8 +780,18 @@ VulkanTexture createTextureWithMips(VulkanRenderDevice& renderDevice, const std:
     stbi_image_free(imageData);
 
     // create texture
-    VkImageUsageFlags imageUsage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
-    texture.image = createImage(renderDevice, VK_FORMAT_R8G8B8A8_UNORM, width, height, imageUsage, mipLevels);
+    VkImageUsageFlags imageUsage {
+        VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
+        VK_IMAGE_USAGE_TRANSFER_DST_BIT |
+        VK_IMAGE_USAGE_SAMPLED_BIT
+    };
+
+    texture.image = createImage(renderDevice,
+                                VK_FORMAT_R8G8B8A8_UNORM,
+                                width, height,
+                                imageUsage,
+                                VK_IMAGE_ASPECT_COLOR_BIT,
+                                mipLevels);
 
     // transition image
     transitionImageLayout(renderDevice,
@@ -795,7 +807,7 @@ VulkanTexture createTextureWithMips(VulkanRenderDevice& renderDevice, const std:
     generateMipMaps(renderDevice, texture.image, width, height, mipLevels);
 
     // create sampler
-    createSampler(renderDevice, texture);
+    createSampler(renderDevice, texture, mipLevels);
 
     return texture;
 }
@@ -855,7 +867,8 @@ void generateMipMaps(VulkanRenderDevice& renderDevice,
         .image = image.image,
         .subresourceRange {
             .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-            .levelCount = 1, // transition only this level
+            .baseMipLevel = 0,
+            .levelCount = 1,
             .baseArrayLayer = 0,
             .layerCount = 1
         }
@@ -888,7 +901,7 @@ void generateMipMaps(VulkanRenderDevice& renderDevice,
             },
             .dstSubresource {
                 .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-                .mipLevel = i + i,
+                .mipLevel = i + 1,
                 .baseArrayLayer = 0,
                 .layerCount = 1
             },

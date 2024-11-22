@@ -97,7 +97,7 @@ void copyBufferToImage(VulkanRenderDevice& renderDevice,
 VulkanTexture createTexture(VulkanRenderDevice& renderDevice, const std::string& filename);
 VulkanTexture createTextureWithMips(VulkanRenderDevice& renderDevice, const std::string& filename);
 void destroyTexture(VulkanRenderDevice& renderDevice, VulkanTexture& texture);
-void createSampler(VulkanRenderDevice& renderDevice, VulkanTexture& texture, uint32_t mipLevels = 1);
+void createSampler(VulkanRenderDevice& renderDevice, VulkanTexture& texture, uint32_t mipLevels);
 void generateMipMaps(VulkanRenderDevice& renderDevice,
                      VulkanImage& image,
                      uint32_t width, uint32_t height,

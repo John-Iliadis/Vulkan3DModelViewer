@@ -803,6 +803,9 @@ VulkanTexture createTextureWithMips(VulkanRenderDevice& renderDevice, const std:
     // copy buffer to image
     copyBufferToImage(renderDevice, stagingBuffer, texture.image, width, height);
 
+    // destroy staging buffer
+    destroyBuffer(renderDevice, stagingBuffer);
+
     // generate mips
     generateMipMaps(renderDevice, texture.image, width, height, mipLevels);
 

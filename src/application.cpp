@@ -188,8 +188,8 @@ void Application::updateViewProjUBO()
 {
     static constexpr glm::mat4 identity(1.f);
 
-    mModelMatrix = glm::rotate(identity, glm::radians(mRotationX), {0.f, 1.f, 0.f});
-    mModelMatrix = glm::rotate(mModelMatrix, glm::radians(mRotationY), {1.f, 0.f, 0.f});
+    mModelMatrix = glm::rotate(identity, glm::radians(mRotationY), {1.f, 0.f, 0.f});
+    mModelMatrix = glm::rotate(mModelMatrix, glm::radians(mRotationX), {0.f, 1.f, 0.f});
     mModelMatrix = glm::scale(mModelMatrix, glm::vec3(mScale));
 
     glm::mat4 mvp = mCamera.viewProjection() * mModelMatrix;
@@ -311,7 +311,7 @@ void Application::createDescriptorSets()
 void Application::destroyDescriptorResources()
 {
     vkDestroyDescriptorSetLayout(mRenderDevice.device, mLayout0, nullptr);
-//    vkDestroyDescriptorSetLayout(mRenderDevice.device, mLayout1, nullptr);
+    vkDestroyDescriptorSetLayout(mRenderDevice.device, mLayout1, nullptr);
     vkDestroyDescriptorPool(mRenderDevice.device, mDescriptorPool, nullptr);
 }
 

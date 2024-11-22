@@ -10,8 +10,8 @@ add_executable(Vulkan3DModelViewer src/main.cpp
         src/vk/vulkan_functions.hpp
         src/vk/vulkan_functions.cpp
         src/vk/debug.cpp
-        src/window.hpp
-        src/window.cpp
+        src/application.hpp
+        src/application.cpp
         src/model/model.cpp
         src/model/model.hpp
         src/model/vertex.hpp

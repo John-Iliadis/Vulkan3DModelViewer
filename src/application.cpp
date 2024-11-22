@@ -2,7 +2,7 @@
 // Created by Gianni on 17/11/2024.
 //
 
-#include "window.hpp"
+#include "application.hpp"
 
 
 static constexpr int INITIAL_WINDOW_WIDTH = 1920;
@@ -10,14 +10,20 @@ static constexpr int INITIAL_WINDOW_HEIGHT = 1080;
 static constexpr char* const WINDOW_TITLE = "3D Model Viewer";
 
 
-Window::Window()
+Application::Application()
     : mInstance()
     , mRenderDevice()
     , mRenderPass()
     , mDepthImage()
-    , mViewProjUBO()
+    , mModelViewProjUBO()
     , mDescriptorPool()
     , mLayout0()
+    , mLeftMouseButtonPressed()
+    , mCursorPosX()
+    , mCursorPosY()
+    , mRotationX()
+    , mRotationY()
+    , mOrbitNavSensitivity(0.15f)
 {
     initializeGLFW();
     createInstance(mInstance);
@@ -36,9 +42,9 @@ Window::Window()
     createModel(mModel, mRenderDevice, "../assets/backpack/backpack.obj");
 }
 
-Window::~Window()
+Application::~Application()
 {
-    destroyBuffer(mRenderDevice, mViewProjUBO);
+    destroyBuffer(mRenderDevice, mModelViewProjUBO);
     vkDestroyPipeline(mRenderDevice.device, mGraphicsPipeline, nullptr);
     vkDestroyPipelineLayout(mRenderDevice.device, mPipelineLayout, nullptr);
     destroyModel(mModel, mRenderDevice);
@@ -52,7 +58,7 @@ Window::~Window()
     glfwTerminate();
 }
 
-void Window::run()
+void Application::run()
 {
     while (!glfwWindowShouldClose(mWindow))
     {
@@ -63,7 +69,7 @@ void Window::run()
      vkDeviceWaitIdle(mRenderDevice.device);
 }
 
-void Window::initializeGLFW()
+void Application::initializeGLFW()
 {
     glfwInit();
 
@@ -79,9 +85,10 @@ void Window::initializeGLFW()
     glfwSetWindowUserPointer(mWindow, this);
     glfwSetKeyCallback(mWindow, keyCallback);
     glfwSetMouseButtonCallback(mWindow, mouseButtonCallback);
+    glfwSetCursorPosCallback(mWindow, cursorPositionCallback);
 }
 
-void Window::createDepthBuffer()
+void Application::createDepthBuffer()
 {
     mDepthImage = createImage(mRenderDevice,
                               VK_FORMAT_D32_SFLOAT,
@@ -91,7 +98,7 @@ void Window::createDepthBuffer()
                               VK_IMAGE_ASPECT_DEPTH_BIT);
 }
 
-void Window::createRenderPass()
+void Application::createRenderPass()
 {
     VkAttachmentDescription colorAttachment {
         .format = VK_FORMAT_R8G8B8A8_UNORM,
@@ -144,7 +151,7 @@ void Window::createRenderPass()
     vulkanCheck(result, "Failed to create renderpass.");
 }
 
-void Window::createFramebuffers()
+void Application::createFramebuffers()
 {
     size_t imageCount = mRenderDevice.swapchainImages.size();
     mFramebuffers.resize(imageCount);
@@ -168,22 +175,30 @@ void Window::createFramebuffers()
     }
 }
 
-void Window::createViewProjUBO()
+void Application::createViewProjUBO()
 {
-    mViewProjUBO = createBuffer(mRenderDevice,
-                                sizeof(glm::mat4),
+    mModelViewProjUBO = createBuffer(mRenderDevice,
+                                     sizeof(glm::mat4),
                                 VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
                                 VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 }
 
-void Window::updateViewProjUBO()
+void Application::updateViewProjUBO()
 {
+    static constexpr glm::mat4 identity(1.f);
+
+    mModelMatrix = glm::rotate(identity, glm::radians(mRotationX), {0.f, 1.f, 0.f});
+    mModelMatrix = glm::rotate(mModelMatrix, glm::radians(mRotationY), {1.f, 0.f, 0.f});
+//    mModelMatrix = glm::scale(mModelMatrix, glm::vec3(m_scale));
+
+    glm::mat4 mvp = mCamera.viewProjection() * mModelMatrix;
+
     VkCommandBuffer commandBuffer = beginSingleCommand(mRenderDevice);
-    vkCmdUpdateBuffer(commandBuffer, mViewProjUBO.buffer, 0, sizeof(glm::mat4), &mCamera.viewProjection());
+    vkCmdUpdateBuffer(commandBuffer, mModelViewProjUBO.buffer, 0, sizeof(glm::mat4), &mvp);
     endSingleCommand(mRenderDevice, commandBuffer);
 }
 
-void Window::createDescriptorPool()
+void Application::createDescriptorPool()
 {
     std::vector<VkDescriptorPoolSize> descriptorPoolSizes {
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1},
@@ -204,7 +219,7 @@ void Window::createDescriptorPool()
     vulkanCheck(result, "Failed to create descriptor pool.");
 }
 
-void Window::createDescriptorSets()
+void Application::createDescriptorSets()
 {
     VkDescriptorSetLayoutBinding layout0Binding0 {
         .binding = 0,
@@ -237,7 +252,7 @@ void Window::createDescriptorSets()
     vulkanCheck(result, "Failed to allocate descriptor set.");
 
     VkDescriptorBufferInfo uboInfo {
-        .buffer = mViewProjUBO.buffer,
+        .buffer = mModelViewProjUBO.buffer,
         .offset = 0,
         .range = VK_WHOLE_SIZE
     };
@@ -256,14 +271,14 @@ void Window::createDescriptorSets()
     vkUpdateDescriptorSets(mRenderDevice.device, 1, &writeDescriptorSet, 0, nullptr);
 }
 
-void Window::destroyDescriptorResources()
+void Application::destroyDescriptorResources()
 {
     vkDestroyDescriptorSetLayout(mRenderDevice.device, mLayout0, nullptr);
 //    vkDestroyDescriptorSetLayout(mRenderDevice.device, mLayout1, nullptr);
     vkDestroyDescriptorPool(mRenderDevice.device, mDescriptorPool, nullptr);
 }
 
-void Window::createPipelineLayout()
+void Application::createPipelineLayout()
 {
     VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
@@ -278,7 +293,7 @@ void Window::createPipelineLayout()
     vulkanCheck(result, "Failed to create pipeline layout");
 }
 
-void Window::createGraphicsPipeline()
+void Application::createGraphicsPipeline()
 {
     createPipelineLayout();
 
@@ -411,13 +426,13 @@ void Window::createGraphicsPipeline()
     vkDestroyShaderModule(mRenderDevice.device, fragmentShader, nullptr);
 }
 
-void Window::setupCamera()
+void Application::setupCamera()
 {
     mCamera = Camera(45.f, INITIAL_WINDOW_WIDTH, INITIAL_WINDOW_HEIGHT);
     mCamera.setPosition(0, 0, 5);
 }
 
-void Window::recordRenderCommands(uint32_t imageIndex)
+void Application::recordRenderCommands(uint32_t imageIndex)
 {
     VkCommandBufferBeginInfo beginInfo {
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
@@ -472,7 +487,7 @@ void Window::recordRenderCommands(uint32_t imageIndex)
     vkEndCommandBuffer(mRenderDevice.commandBuffer);
 }
 
-void Window::renderFrame()
+void Application::renderFrame()
 {
     uint32_t imageIndex;
     VkResult result = vkAcquireNextImageKHR(mRenderDevice.device,
@@ -520,7 +535,7 @@ void Window::renderFrame()
     vkDeviceWaitIdle(mRenderDevice.device);
 }
 
-void Window::resize()
+void Application::resize()
 {
     int width, height;
     glfwGetFramebufferSize(mWindow, &width, &height);
@@ -558,15 +573,51 @@ void Window::resize()
 #endif
 }
 
-void Window::keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods)
+void Application::keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods)
 {
-    Window& appWindow = *reinterpret_cast<Window*>(glfwGetWindowUserPointer(window));
+    Application& app = *reinterpret_cast<Application*>(glfwGetWindowUserPointer(window));
 
     if (key == GLFW_KEY_ESCAPE)
         glfwSetWindowShouldClose(window, GLFW_TRUE);
 }
 
-void Window::mouseButtonCallback(GLFWwindow *window, int button, int action, int mods)
+void Application::mouseButtonCallback(GLFWwindow *window, int button, int action, int mods)
 {
-    Window& appWindow = *reinterpret_cast<Window*>(glfwGetWindowUserPointer(window));
+    Application& app = *reinterpret_cast<Application*>(glfwGetWindowUserPointer(window));
+
+    if (button == GLFW_MOUSE_BUTTON_LEFT)
+    {
+        if (action == GLFW_PRESS)
+        {
+            app.mLeftMouseButtonPressed = true;
+        }
+        else if (action == GLFW_RELEASE)
+        {
+            app.mLeftMouseButtonPressed = false;
+        }
+    }
+}
+
+void Application::cursorPositionCallback(GLFWwindow *window, double x, double y)
+{
+    Application& app = *reinterpret_cast<Application*>(glfwGetWindowUserPointer(window));
+
+    if (app.mLeftMouseButtonPressed)
+    {
+        double dx = x - app.mCursorPosX;
+        double dy = y - app.mCursorPosY;
+
+        app.mRotationX += dx * app.mOrbitNavSensitivity;
+        app.mRotationY += dy * app.mOrbitNavSensitivity;
+
+        if (glm::abs(app.mRotationY) > 90.f)
+        {
+            app.mRotationY = glm::clamp(app.mRotationY, -90.f, 90.f);
+        }
+
+        app.updateViewProjUBO();
+    }
+
+    app.mCursorPosX = x;
+    app.mCursorPosY = y;
 }

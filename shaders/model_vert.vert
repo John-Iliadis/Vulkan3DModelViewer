@@ -10,11 +10,11 @@ layout (location = 0) out vec2 vTexCoords;
 
 layout (binding = 0) uniform UBO
 {
-    mat4 viewProj;
+    mat4 mvp;
 } ubo;
 
 void main()
 {
-    gl_Position = ubo.viewProj * vec4(position, 1.f);
+    gl_Position = ubo.mvp * vec4(position, 1.f);
     vTexCoords = texCoords;
 }

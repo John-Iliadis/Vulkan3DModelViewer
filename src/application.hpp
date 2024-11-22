@@ -2,8 +2,8 @@
 // Created by Gianni on 17/11/2024.
 //
 
-#ifndef VULKAN3DMODELVIEWER_WINDOW_HPP
-#define VULKAN3DMODELVIEWER_WINDOW_HPP
+#ifndef VULKAN3DMODELVIEWER_APPLICATION_HPP
+#define VULKAN3DMODELVIEWER_APPLICATION_HPP
 
 #include <array>
 #include <vulkan/vulkan.h>
@@ -15,11 +15,11 @@
 #include "camera/camera.hpp"
 
 
-class Window
+class Application
 {
 public:
-    Window();
-    ~Window();
+    Application();
+    ~Application();
 
     void run();
 
@@ -43,6 +43,7 @@ private:
 
     static void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods);
     static void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods);
+    static void cursorPositionCallback(GLFWwindow* window, double x, double y);
 
 private:
     GLFWwindow* mWindow;
@@ -56,7 +57,8 @@ private:
     VulkanImage mDepthImage;
     std::vector<VkFramebuffer> mFramebuffers;
 
-    VulkanBuffer mViewProjUBO;
+    glm::mat4 mModelMatrix;
+    VulkanBuffer mModelViewProjUBO;
 
     VkDescriptorPool mDescriptorPool;
     VkDescriptorSetLayout mLayout0;
@@ -64,7 +66,14 @@ private:
 
     Camera mCamera;
     Model mModel;
+
+    bool mLeftMouseButtonPressed;
+    double mCursorPosX;
+    double mCursorPosY;
+    float mRotationX;
+    float mRotationY;
+    float mOrbitNavSensitivity;
 };
 
 
-#endif //VULKAN3DMODELVIEWER_WINDOW_HPP
+#endif //VULKAN3DMODELVIEWER_APPLICATION_HPP

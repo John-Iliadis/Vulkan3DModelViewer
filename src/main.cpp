@@ -1,8 +1,8 @@
-#include "window.hpp"
+#include "application.hpp"
 
 
 int main()
 {
-    Window window;
+    Application window;
     window.run();
 }

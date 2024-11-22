@@ -50,6 +50,12 @@ void Camera::setRotation(float angleX, float angleZ)
     recalculateView();
 }
 
+void Camera::translate(float x, float y, float z)
+{
+    mPosition += glm::vec3(x, y, z);
+    recalculateView();
+}
+
 void Camera::resize(float width, float height)
 {
     mProjection = glm::perspective(mFov, width / height, mNear, mFar);

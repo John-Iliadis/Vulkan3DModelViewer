@@ -23,6 +23,7 @@ Application::Application()
     , mCursorPosY()
     , mRotationX()
     , mRotationY()
+    , mScale(1.f)
     , mOrbitNavSensitivity(0.15f)
 {
     initializeGLFW();
@@ -76,16 +77,13 @@ void Application::initializeGLFW()
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
     mWindow = glfwCreateWindow(INITIAL_WINDOW_WIDTH, INITIAL_WINDOW_HEIGHT, WINDOW_TITLE, nullptr, nullptr);
-
-    if (!mWindow)
-    {
-        throw std::runtime_error("Window::initializeGLFW: Failed to create GLFW window.");
-    }
+    vulkanCheck(mWindow? VK_SUCCESS : static_cast<VkResult>(~VK_SUCCESS), "Failed to create window");
 
     glfwSetWindowUserPointer(mWindow, this);
     glfwSetKeyCallback(mWindow, keyCallback);
     glfwSetMouseButtonCallback(mWindow, mouseButtonCallback);
     glfwSetCursorPosCallback(mWindow, cursorPositionCallback);
+    glfwSetScrollCallback(mWindow, scrollCallback);
 }
 
 void Application::createDepthBuffer()
@@ -189,7 +187,7 @@ void Application::updateViewProjUBO()
 
     mModelMatrix = glm::rotate(identity, glm::radians(mRotationX), {0.f, 1.f, 0.f});
     mModelMatrix = glm::rotate(mModelMatrix, glm::radians(mRotationY), {1.f, 0.f, 0.f});
-//    mModelMatrix = glm::scale(mModelMatrix, glm::vec3(m_scale));
+    mModelMatrix = glm::scale(mModelMatrix, glm::vec3(mScale));
 
     glm::mat4 mvp = mCamera.viewProjection() * mModelMatrix;
 
@@ -620,4 +618,17 @@ void Application::cursorPositionCallback(GLFWwindow *window, double x, double y)
 
     app.mCursorPosX = x;
     app.mCursorPosY = y;
+}
+
+void Application::scrollCallback(GLFWwindow *window, double xOffset, double yOffset)
+{
+    if (yOffset == 0)
+        return;
+
+    Application& app = *reinterpret_cast<Application*>(glfwGetWindowUserPointer(window));
+
+    app.mScale += yOffset * app.mScale / 10.f;
+    app.mScale = glm::clamp(app.mScale, 0.1f, 10.f);
+
+    app.updateViewProjUBO();
 }

@@ -18,6 +18,8 @@ public:
     void setPosition(float x, float y, float z);
     void setPosition(const glm::vec3& position);
     void setRotation(float angleX, float angleZ);
+
+    void translate(float x, float y, float z);
     void resize(float width, float height);
 
     const glm::mat4& view() const;

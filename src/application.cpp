@@ -22,7 +22,8 @@ Application::Application()
     createInstance(mInstance);
     createSurface(mInstance, mWindow);
     createRenderingDevice(mInstance, mRenderDevice);
-    createDepthBuffer();
+    createSampledColorImage();
+    createDepthImage();
     createViewProjUBO();
 
     setupCamera();
@@ -45,6 +46,7 @@ Application::~Application()
                   [this] (auto fb) { vkDestroyFramebuffer(mRenderDevice.device, fb,nullptr); });
     vkDestroyRenderPass(mRenderDevice.device, mRenderPass, nullptr);
     destroyImage(mRenderDevice, mDepthImage);
+    destroyImage(mRenderDevice, mSampledColorImage);
     destroyDescriptorResources();
     destroyRenderingDevice(mRenderDevice);
     destroyInstance(mInstance);
@@ -78,37 +80,69 @@ void Application::initializeGLFW()
     glfwSetScrollCallback(mWindow, scrollCallback);
 }
 
-void Application::createDepthBuffer()
+void Application::createDepthImage()
 {
+    // todo: why multisampled
     mDepthImage = createImage(mRenderDevice,
                               VK_FORMAT_D32_SFLOAT,
                               mRenderDevice.swapchainExtent.width,
                               mRenderDevice.swapchainExtent.height,
                               VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
-                              VK_IMAGE_ASPECT_DEPTH_BIT);
+                              VK_IMAGE_ASPECT_DEPTH_BIT,
+                              getMaxSampleCount(mRenderDevice));
+}
+
+void Application::createSampledColorImage()
+{
+    VkImageUsageFlags usage {
+        VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
+        VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT // todo: why
+    };
+
+    mSampledColorImage = createImage(mRenderDevice,
+                                     mRenderDevice.swapchainFormat,
+                                     mRenderDevice.swapchainExtent.width,
+                                     mRenderDevice.swapchainExtent.height,
+                                     usage,
+                                     VK_IMAGE_ASPECT_COLOR_BIT,
+                                     getMaxSampleCount(mRenderDevice));
 }
 
 void Application::createRenderPass()
 {
     VkAttachmentDescription colorAttachment {
-        .format = VK_FORMAT_R8G8B8A8_UNORM,
-        .samples = VK_SAMPLE_COUNT_1_BIT,
+        .format = mRenderDevice.swapchainFormat,
+        .samples = getMaxSampleCount(mRenderDevice),
         .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
         .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
         .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-        .finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
+        .finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
     };
 
     VkAttachmentDescription depthAttachment {
         .format = VK_FORMAT_D32_SFLOAT,
-        .samples = VK_SAMPLE_COUNT_1_BIT,
+        .samples = getMaxSampleCount(mRenderDevice),
         .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
         .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
         .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
         .finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
     };
 
-    std::vector<VkAttachmentDescription> attachments {colorAttachment, depthAttachment};
+    // todo: why resolve
+    VkAttachmentDescription colorAttachmentResolve {
+        .format = mRenderDevice.swapchainFormat,
+        .samples = VK_SAMPLE_COUNT_1_BIT,
+        .loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE, // todo: why don't care?
+        .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+        .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED, // todo: how is it undefined?
+        .finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
+    };
+
+    std::array<VkAttachmentDescription, 3> attachmentsDescriptions {
+        colorAttachment,
+        depthAttachment,
+        colorAttachmentResolve
+    };
 
     VkAttachmentReference colorAttachmentRef {
         .attachment = 0,
@@ -120,19 +154,25 @@ void Application::createRenderPass()
         .layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
     };
 
+    VkAttachmentReference colorAttachmentResolveRef {
+        .attachment = 2,
+        .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
+    };
+
     VkSubpassDescription subpass {
         .pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
         .inputAttachmentCount = 0,
         .pInputAttachments = nullptr,
         .colorAttachmentCount = 1,
         .pColorAttachments = &colorAttachmentRef,
+        .pResolveAttachments = &colorAttachmentResolveRef,
         .pDepthStencilAttachment = &depthAttachmentRef
     };
 
     VkRenderPassCreateInfo renderPassCreateInfo {
         .sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
-        .attachmentCount = static_cast<uint32_t>(attachments.size()),
-        .pAttachments = attachments.data(),
+        .attachmentCount = static_cast<uint32_t>(attachmentsDescriptions.size()),
+        .pAttachments = attachmentsDescriptions.data(),
         .subpassCount = 1,
         .pSubpasses = &subpass
     };
@@ -148,7 +188,11 @@ void Application::createFramebuffers()
 
     for (size_t i = 0; i < imageCount; ++i)
     {
-        std::vector<VkImageView> attachments {mRenderDevice.swapchainImageViews.at(i), mDepthImage.imageView};
+        std::array<VkImageView, 3> attachments {
+            mSampledColorImage.imageView,
+            mDepthImage.imageView,
+            mRenderDevice.swapchainImageViews.at(i)
+        };
 
         VkFramebufferCreateInfo framebufferCreateInfo {
             .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
@@ -452,8 +496,9 @@ void Application::createGraphicsPipeline()
 
     VkPipelineMultisampleStateCreateInfo multisampleStateCreateInfo {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
-        .rasterizationSamples = VK_SAMPLE_COUNT_16_BIT,
-        .sampleShadingEnable = VK_FALSE
+        .rasterizationSamples = getMaxSampleCount(mRenderDevice),
+        .sampleShadingEnable = VK_TRUE,
+        .minSampleShading = 0.2f
     };
 
     VkPipelineDepthStencilStateCreateInfo depthStencilStateCreateInfo {
@@ -661,7 +706,7 @@ void Application::resize()
     // recreate resources
     createSwapchain(mInstance, mRenderDevice);
     createSwapchainImages(mRenderDevice);
-    createDepthBuffer();
+    createDepthImage();
     createFramebuffers();
 
     // update resources

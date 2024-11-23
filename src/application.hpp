@@ -25,7 +25,8 @@ public:
 
 private:
     void initializeGLFW();
-    void createDepthBuffer();
+    void createDepthImage();
+    void createSampledColorImage();
     void createRenderPass();
     void createFramebuffers();
     void createViewProjUBO();
@@ -58,6 +59,7 @@ private:
     VkPipeline mGraphicsPipeline;
 
     VulkanImage mDepthImage;
+    VulkanImage mSampledColorImage;
     std::vector<VkFramebuffer> mFramebuffers;
 
     VulkanBuffer mModelViewProjUBO;

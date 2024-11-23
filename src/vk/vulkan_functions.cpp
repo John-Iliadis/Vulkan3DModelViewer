@@ -186,6 +186,7 @@ void createDevice(VulkanRenderDevice& renderDevice)
     std::vector<const char*> extensions = getDeviceExtensions();
 
     VkPhysicalDeviceFeatures physicalDeviceFeatures {
+        .sampleRateShading = VK_TRUE,
         .samplerAnisotropy = VK_TRUE
     };
 
@@ -245,7 +246,7 @@ void createSwapchain(VulkanInstance& instance, VulkanRenderDevice& renderDevice)
         .imageSharingMode = VK_SHARING_MODE_EXCLUSIVE,
         .preTransform = surfaceCapabilities.currentTransform,
         .compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
-        .presentMode = VK_PRESENT_MODE_FIFO_KHR,
+        .presentMode = VK_PRESENT_MODE_IMMEDIATE_KHR,
         .clipped = VK_TRUE
     };
 
@@ -521,6 +522,7 @@ VulkanImage createImage(VulkanRenderDevice& renderDevice,
                         uint32_t width, uint32_t height,
                         VkImageUsageFlags usage,
                         VkImageAspectFlags aspectMask,
+                        VkSampleCountFlagBits samples,
                         uint32_t mipLevels)
 {
     VulkanImage image;
@@ -533,7 +535,7 @@ VulkanImage createImage(VulkanRenderDevice& renderDevice,
         .extent = {.width = width, .height = height, .depth = 1},
         .mipLevels = mipLevels,
         .arrayLayers = 1,
-        .samples = VK_SAMPLE_COUNT_1_BIT,
+        .samples = samples,
         .tiling = VK_IMAGE_TILING_OPTIMAL,
         .usage = usage,
         .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
@@ -791,6 +793,7 @@ VulkanTexture createTextureWithMips(VulkanRenderDevice& renderDevice, const std:
                                 width, height,
                                 imageUsage,
                                 VK_IMAGE_ASPECT_COLOR_BIT,
+                                VK_SAMPLE_COUNT_1_BIT,
                                 mipLevels);
 
     // transition image
@@ -828,8 +831,7 @@ void createSampler(VulkanRenderDevice& renderDevice, VulkanTexture& texture, uin
 
     if (mipLevels > 1)
     {
-        VkPhysicalDeviceProperties physicalDeviceProperties;
-        vkGetPhysicalDeviceProperties(renderDevice.physicalDevice, &physicalDeviceProperties);
+        VkPhysicalDeviceProperties physicalDeviceProperties = getPhysicalDeviceProperties(renderDevice);
 
         anisotropyEnable = VK_TRUE;
         maxAnisotropy = physicalDeviceProperties.limits.maxSamplerAnisotropy;
@@ -977,4 +979,34 @@ VkShaderModule createShaderModule(VulkanRenderDevice& renderDevice, const std::s
     delete[] code;
 
     return shaderModule;
+}
+
+VkPhysicalDeviceProperties getPhysicalDeviceProperties(VulkanRenderDevice& renderDevice)
+{
+    VkPhysicalDeviceProperties physicalDeviceProperties;
+    vkGetPhysicalDeviceProperties(renderDevice.physicalDevice, &physicalDeviceProperties);
+    return physicalDeviceProperties;
+}
+
+VkSampleCountFlagBits getMaxSampleCount(VulkanRenderDevice& renderDevice)
+{
+    VkPhysicalDeviceProperties physicalDeviceProperties = getPhysicalDeviceProperties(renderDevice);
+
+    VkSampleCountFlags sampleCounts = physicalDeviceProperties.limits.framebufferColorSampleCounts &
+                                      physicalDeviceProperties.limits.framebufferDepthSampleCounts;
+
+    VkSampleCountFlagBits flags[] {
+        VK_SAMPLE_COUNT_64_BIT,
+        VK_SAMPLE_COUNT_32_BIT,
+        VK_SAMPLE_COUNT_16_BIT,
+        VK_SAMPLE_COUNT_8_BIT,
+        VK_SAMPLE_COUNT_4_BIT,
+        VK_SAMPLE_COUNT_2_BIT
+    };
+
+    for (auto flag : flags)
+        if (flag & sampleCounts)
+            return flag;
+
+    return VK_SAMPLE_COUNT_1_BIT;
 }

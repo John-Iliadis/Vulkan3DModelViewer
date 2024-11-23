@@ -74,6 +74,7 @@ VulkanImage createImage(VulkanRenderDevice& renderDevice,
                         uint32_t width, uint32_t height,
                         VkImageUsageFlags usage,
                         VkImageAspectFlags aspectMask,
+                        VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT,
                         uint32_t mipLevels = 1);
 void destroyImage(VulkanRenderDevice& renderDevice, VulkanImage& image);
 
@@ -105,5 +106,8 @@ void generateMipMaps(VulkanRenderDevice& renderDevice,
 
 VkShaderModule createShaderModule(VulkanRenderDevice& renderDevice, const std::string& filename);
 
+VkPhysicalDeviceProperties getPhysicalDeviceProperties(VulkanRenderDevice& renderDevice);
+
+VkSampleCountFlagBits getMaxSampleCount(VulkanRenderDevice& renderDevice);
 
 #endif //VULKAN3DMODELVIEWER_VULKAN_FUNCTIONS_HPP

@@ -15,18 +15,11 @@ struct Mesh
 {
     VulkanBuffer vertexBuffer;
     IndexBuffer indexBuffer;
-    VulkanTexture diffuseMap;
-    VulkanTexture specularMap;
-    VulkanTexture normalMap;
+    uint32_t materialIndex;
 };
 
 void destroyMesh(Mesh& mesh, VulkanRenderDevice& renderDevice);
 
-void renderMesh(Mesh& mesh,
-                VulkanRenderDevice& renderDevice,
-                VkDescriptorSet descriptorSet,
-                VkPipelineLayout pipelineLayout,
-                VkCommandBuffer commandBuffer);
-void updateDescriptorSet(Mesh& mesh, VulkanRenderDevice& renderDevice, VkDescriptorSet descriptorSet);
+void renderMesh(Mesh& mesh, VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout);
 
 #endif //VULKAN3DMODELVIEWER_MESH_HPP

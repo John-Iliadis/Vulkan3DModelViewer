@@ -7,18 +7,23 @@
 
 #include <vector>
 #include <string>
+#include <unordered_map>
 #include <glm/glm.hpp>
 #include <assimp/Importer.hpp>
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
 #include "mesh.hpp"
+#include "material.hpp"
 #include "vertex.hpp"
 
 
 struct Model
 {
     std::vector<Mesh> meshes;
-    std::unordered_map<std::string, VulkanTexture> textures;
+    std::vector<Material> materials;
+    std::vector<VulkanTexture> textures;
+    VulkanBuffer materialBuffer;
+    std::unordered_map<std::string, size_t> loadedTextureCache;
     std::string directory;
 };
 
@@ -27,12 +32,16 @@ void destroyModel(Model& model, VulkanRenderDevice& renderDevice);
 
 void renderModel(Model& model,
                  VulkanRenderDevice& renderDevice,
-                 VkDescriptorSet descriptorSet,
                  VkPipelineLayout pipelineLayout,
                  VkCommandBuffer commandBuffer);
 
-void processNode(Model& model, VulkanRenderDevice& renderDevice, aiNode* node, const aiScene* scene);
-void processMesh(Model& model, VulkanRenderDevice& renderDevice, aiMesh& mesh, const aiScene* scene);
+void loadMaterials(Model& model, VulkanRenderDevice& renderDevice, const aiScene& scene);
+std::optional<size_t> loadTexture(Model& model, VulkanRenderDevice& renderDevice, const aiMaterial& material, aiTextureType textureType);
+
+void createMaterialBuffer(Model& model, VulkanRenderDevice& renderDevice);
+
+void processNode(Model& model, VulkanRenderDevice& renderDevice, const aiScene& scene, aiNode& node);
+void processMesh(Model& model, VulkanRenderDevice& renderDevice, const aiScene& scene, aiMesh& mesh);
 
 std::vector<Vertex> getVertices(aiMesh& mesh);
 std::vector<uint32_t> getIndices(aiMesh& mesh);

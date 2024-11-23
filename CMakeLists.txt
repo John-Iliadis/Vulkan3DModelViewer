@@ -18,7 +18,8 @@ add_executable(Vulkan3DModelViewer src/main.cpp
         src/model/mesh.cpp
         src/model/mesh.hpp
         src/camera/camera.cpp
-        src/camera/camera.hpp)
+        src/camera/camera.hpp
+        src/model/material.hpp)
 
 set(DEPENDENCIES_DIR ${PROJECT_SOURCE_DIR}/dependencies)
 set(GLFW_DIR ${DEPENDENCIES_DIR}/glfw)

@@ -245,7 +245,7 @@ void createSwapchain(VulkanInstance& instance, VulkanRenderDevice& renderDevice)
         .imageSharingMode = VK_SHARING_MODE_EXCLUSIVE,
         .preTransform = surfaceCapabilities.currentTransform,
         .compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
-        .presentMode = VK_PRESENT_MODE_IMMEDIATE_KHR,
+        .presentMode = VK_PRESENT_MODE_FIFO_KHR,
         .clipped = VK_TRUE
     };
 
@@ -763,7 +763,7 @@ VulkanTexture createTextureWithMips(VulkanRenderDevice& renderDevice, const std:
     vulkanCheck(static_cast<VkResult>(imageData ? VK_SUCCESS : ~VK_SUCCESS), "Failed to load image data.");
 
     VkDeviceSize size = width * height * 4;
-    uint32_t mipLevels = glm::floor(glm::log2(glm::max(width, height))) + 1;
+    uint32_t mipLevels = static_cast<uint32_t>(glm::floor(glm::log2(glm::max(width, height)))) + 1;
 
     // create staging buffer
     VkMemoryPropertyFlags stagingBufferMemoryProperties {
@@ -849,7 +849,7 @@ void createSampler(VulkanRenderDevice& renderDevice, VulkanTexture& texture, uin
         .compareEnable = VK_FALSE,
         .compareOp = VK_COMPARE_OP_NEVER,
         .minLod = 0.f,
-        .maxLod = static_cast<float>(mipLevels - 1),
+        .maxLod = VK_LOD_CLAMP_NONE,
         .unnormalizedCoordinates = VK_FALSE
     };
 
@@ -911,7 +911,7 @@ void generateMipMaps(VulkanRenderDevice& renderDevice,
             },
             .dstOffsets {
                 {0, 0, 0},
-                {mipWidth / 2, mipHeight / 2, 1}
+                {glm::max(mipWidth / 2, 1), glm::max(mipHeight / 2, 1), 1}
             }
         };
 

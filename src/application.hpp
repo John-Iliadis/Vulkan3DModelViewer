@@ -31,7 +31,9 @@ private:
     void createViewProjUBO();
     void updateViewProjUBO();
     void createDescriptorPool();
+    void createDescriptorSetLayouts();
     void createDescriptorSets();
+    void createDescriptorResources();
     void destroyDescriptorResources();
     void createPipelineLayout();
     void createGraphicsPipeline();
@@ -58,8 +60,8 @@ private:
     VulkanImage mDepthImage;
     std::vector<VkFramebuffer> mFramebuffers;
 
-    glm::mat4 mModelMatrix;
     VulkanBuffer mModelViewProjUBO;
+    VulkanBuffer mMaterialsUBO;
 
     VkDescriptorPool mDescriptorPool;
     VkDescriptorSetLayout mLayout0;
@@ -67,6 +69,7 @@ private:
     VkDescriptorSet mSet0;
     VkDescriptorSet mSet1;
 
+    glm::mat4 mModelMatrix;
     Camera mCamera;
     Model mModel;
 

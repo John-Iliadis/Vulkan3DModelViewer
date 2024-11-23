@@ -63,7 +63,4 @@ struct Vertex
 };
 
 
-
-
-
 #endif //VULKAN3DMODELVIEWER_VERTEX_HPP
